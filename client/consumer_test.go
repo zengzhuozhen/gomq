@@ -1,14 +1,16 @@
 package client
 
 import (
-	"gomq/common"
 	"testing"
 )
 
 func TestNewConsumer(t *testing.T) {
-	 NewConsumer(make(chan common.Message,10))
+	NewConsumer("tcp","127.0.0.1",9000,5)
 }
-func TestConsumer_Consume(t *testing.T) {
-	consumer := NewConsumer(make(chan common.Message,10))
-	consumer.Consume()
+
+func TestConsumer_Subscribe(t *testing.T) {
+	consumer := NewConsumer("tcp","127.0.0.1",9000,5)
+	consumer.Subscribe()
 }
+
+

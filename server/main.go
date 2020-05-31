@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"golang.org/x/sync/errgroup"
-	"gomq/client"
 	"gomq/common"
+	"gomq/server/consumer"
+	"gomq/server/producer"
+	"gomq/server/service"
 	"time"
 )
 
@@ -17,14 +19,16 @@ func main() {
 	producerChannel := make(chan common.Message, 10)
 	consumerChannel := make(chan common.Message, 10)
 
-	producer := client.NewProducer(producerChannel)
-	consumer := client.NewConsumer(consumerChannel)
+	producerReceiver := producer.NewProducerReceiver(producerChannel)
+	consumerReceiver := consumer.NewConsumerReceiver(consumerChannel)
 
 	g := errgroup.Group{}
 	g.Go(func() error {
+		fmt.Println("监听发布....")
 		for {
 			select {
 			case msg := <-producerChannel:
+				fmt.Println("记录入队数据")
 				queue.Push(msg)
 			case <-ctx.Done():
 				return ctx.Err()
@@ -33,24 +37,25 @@ func main() {
 	})
 
 	g.Go(func() error {
-		fmt.Println("启动消费....")
+		fmt.Println("监听消费....")
 		for {
 			if msg := queue.Pop(); msg != *new(common.Message) {
+				fmt.Println("记录出队数据")
+				// 判断是否有消费者连接，有才发送，没有则堆积数据
 				consumerChannel <- msg
 			}else{
 				time.Sleep(100 * time.Millisecond)
 			}
 		}
 	})
+
 	g.Go(func() error {
-		consumer.Consume(ctx)
+		fmt.Println("开启tcp service...")
+		listener := service.NewListener("tcp",":9000")
+		listener.Start(producerReceiver, consumerReceiver)
 		return nil
 	})
 
-	msg := common.NewMessage(1, "hello", "hello world")
-	producer.Produce(msg)
-	producer.Produce(msg)
-	producer.Produce(msg)
 
 	g.Wait()
 

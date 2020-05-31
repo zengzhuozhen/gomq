@@ -1,9 +1,9 @@
 package common
 
 type Message struct{
-	MsgId int64
-	MsgKey string
-	Body string
+	MsgId int64 `json:"msg_id"`
+	MsgKey string `json:"msg_key"`
+	Body string `json:"body"`
 }
 
 func NewMessage(msgId int64, msgKey,body string) Message{
