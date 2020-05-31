@@ -11,16 +11,16 @@ import (
 	"time"
 )
 
-
 func main() {
 
 	queue := common.NewQueue()
 	ctx := context.Background()
-	producerChannel := make(chan common.Message, 10)
-	consumerChannel := make(chan common.Message, 10)
+	consumerPool := consumer.NewPool()
+	producerChannel := make(chan common.Message)
+	consumerChannel := make(chan common.Message)
 
-	producerReceiver := producer.NewProducerReceiver(producerChannel)
-	consumerReceiver := consumer.NewConsumerReceiver(consumerChannel)
+	producerReceiver := producer.NewProducerReceiver(producerChannel, queue)
+	consumerReceiver := consumer.NewConsumerReceiver(consumerChannel, consumerPool)
 
 	g := errgroup.Group{}
 	g.Go(func() error {
@@ -28,8 +28,7 @@ func main() {
 		for {
 			select {
 			case msg := <-producerChannel:
-				fmt.Println("记录入队数据")
-				queue.Push(msg)
+				fmt.Println("记录入队数据", msg.MsgKey)
 			case <-ctx.Done():
 				return ctx.Err()
 			}
@@ -39,23 +38,30 @@ func main() {
 	g.Go(func() error {
 		fmt.Println("监听消费....")
 		for {
-			if msg := queue.Pop(); msg != *new(common.Message) {
-				fmt.Println("记录出队数据")
-				// 判断是否有消费者连接，有才发送，没有则堆积数据
-				consumerChannel <- msg
-			}else{
+			activeConn := consumerPool.ForeachActiveConn()
+			if len(activeConn) == 0 {
 				time.Sleep(100 * time.Millisecond)
+				continue
+			}
+			for _, uid := range activeConn {
+				topic := consumerPool.Topic[uid]
+				position := consumerPool.Position[uid]
+				if msg, err := queue.Pop(topic, position); err == nil {
+					consumerPool.UpdatePosition(uid)
+					consumerChannel <- msg
+				} else {
+					time.Sleep(100 * time.Millisecond)
+				}
 			}
 		}
 	})
 
 	g.Go(func() error {
 		fmt.Println("开启tcp service...")
-		listener := service.NewListener("tcp",":9000")
+		listener := service.NewListener("tcp", ":9000", consumerPool)
 		listener.Start(producerReceiver, consumerReceiver)
 		return nil
 	})
-
 
 	g.Wait()
 

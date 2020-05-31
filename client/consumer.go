@@ -21,20 +21,20 @@ func NewConsumer(protocol, host string, port, timeout int) *Consumer {
 	}}
 }
 
-func (c *Consumer) Subscribe() {
+func (c *Consumer) Subscribe(topic string) {
 	conn := c.bc.Connect()
 	sendData := make([]byte, 1024)
 	go func() {
 		// 连接服务端
-		sendData = consumerNetPacket(common.C)
+		initPosition := 0
+		sendData = consumerNetPacket(topic, int64(initPosition))
 		conn.Write(sendData)
 		tickTimer := time.NewTicker(1 * time.Second)
 		for {
-			sendData = consumerNetPacket(common.CH)
 			select {
 			case <-tickTimer.C:
 				fmt.Println("发送心跳包")
-				conn.Write(sendData)
+				conn.Write(consumeHeartPack())
 			}
 		}
 	}()
@@ -51,8 +51,23 @@ func (c *Consumer) Subscribe() {
 	}
 }
 
-func consumerNetPacket(class common.Flag) []byte {
-	netPacket := common.NewPacket(class, common.Message{})
+func consumerNetPacket(topic string,initPosition int64) []byte {
+	netPacket := common.Packet{
+		Flag:     common.C,
+		Message:  common.Message{},
+		Topic:    topic,
+		Position: initPosition,
+	}
+	sendData, _ := json.Marshal(netPacket)
+	return sendData
+}
+
+
+func consumeHeartPack() []byte {
+	netPacket := common.Packet{
+		Flag:          common.CH,
+		Message:       common.Message{},
+	}
 	sendData, _ := json.Marshal(netPacket)
 	return sendData
 }

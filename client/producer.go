@@ -18,10 +18,14 @@ func NewProducer(protocol, host string, port, timeout int) *Producer {
 	}}
 }
 
-func (p *Producer) Publish(mess common.Message) {
+func (p *Producer) Publish(topic string ,mess common.Message) {
 	conn := p.bc.Connect()
-	netPacket := common.NewPacket(common.P,mess)
-	data, err := json.Marshal(netPacket)
+	netPacket := common.Packet{
+		Flag:          common.P,
+		Message:       mess,
+		Topic:         topic,
+	}
+	data, err := json.Marshal(&netPacket)
 	if err != nil {
 		return
 	}

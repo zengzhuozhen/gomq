@@ -7,22 +7,26 @@ import (
 	"gomq/common"
 	"gomq/server/consumer"
 	"gomq/server/producer"
-	"io"
 	"log"
 	"net"
 	"time"
 )
 
 type Listener struct {
-	protocol string
-	address  string
+	protocol     string
+	address      string
+	consumerPool *consumer.Pool
 }
 
-func NewListener(protocol, address string) *Listener {
-	return &Listener{protocol: protocol, address: address}
+func NewListener(protocol, address string, consumerPool *consumer.Pool) *Listener {
+	return &Listener{
+		protocol:     protocol,
+		address:      address,
+		consumerPool: consumerPool,
+	}
 }
 
-func (l *Listener) Start(producer *producer.ProducerReceiver, consumer *consumer.ConsumerReceiver) {
+func (l *Listener) Start(producer *producer.Receiver, consumer *consumer.Receiver) {
 	listen, err := net.Listen(l.protocol, l.address)
 	if err != nil {
 		log.Fatal(err.Error())
@@ -35,18 +39,20 @@ func (l *Listener) Start(producer *producer.ProducerReceiver, consumer *consumer
 			log.Fatal(err.Error())
 			return
 		}
-		go handleConn(conn, producer, consumer)
+		go l.handleConn(conn, producer, consumer)
 	}
 }
 
-func handleConn(conn net.Conn, producer *producer.ProducerReceiver, consumer *consumer.ConsumerReceiver) {
+func (l *Listener) handleConn(conn net.Conn, producerRc *producer.Receiver, consumerRc *consumer.Receiver) {
 	// 如果没有可读数据，也就是读 buffer 为空，则阻塞
+	ctx, cancel := context.WithCancel(context.Background())
 	for {
 		packet := make([]byte, 1024)
 		n, err := conn.Read(packet)
-		if err == io.EOF {	//
-			fmt.Println("关闭连接")
+		if err != nil{
+			fmt.Println("客户端超时未响应或退出，关闭连接")
 			_ = conn.Close()
+			cancel()
 			return
 		}
 		data := packet[:n]
@@ -55,13 +61,14 @@ func handleConn(conn net.Conn, producer *producer.ProducerReceiver, consumer *co
 		_ = json.Unmarshal(data, &netPacket)
 		switch netPacket.Flag {
 		case common.C: // 消费者连接
-			_ = conn.SetDeadline(time.Now().Add(10 * time.Second))
-			go consumer.Consume(context.TODO(),conn)
+			_ = conn.SetDeadline(time.Now().Add(100 * time.Second))
+			l.consumerPool.Add(conn.RemoteAddr().String(), netPacket.Topic,netPacket.Position)
+			go consumerRc.Consume(ctx, conn)
 		case common.CH: // 消费者心跳
 			_ = conn.SetDeadline(time.Now().Add(3 * time.Second))
 			continue
 		case common.P: // 生产者连接
-			producer.Produce(netPacket.Message)
+			producerRc.Produce(netPacket.Topic,netPacket.Message)
 			_ = conn.Close()
 			return
 		}

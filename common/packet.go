@@ -10,13 +10,9 @@ const (
 )
 
 type Packet struct {
-	Flag    Flag    `json:"flag"`
-	Message Message `json:"message"`
+	Flag     Flag    `json:"flag"`
+	Message  Message `json:"message"`
+	Topic    string  `json:"topic"`
+	Position int64   `json:"position"` // only consume need set
 }
 
-func NewPacket(flag Flag, message Message) Packet {
-	return Packet{
-		Flag:    flag,
-		Message: message,
-	}
-}
