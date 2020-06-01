@@ -5,3 +5,5 @@ type Message struct{
 	MsgKey string `json:"msg_key"`
 	Body string `json:"body"`
 }
+
+type MsgChan chan Message

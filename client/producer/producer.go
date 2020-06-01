@@ -1,20 +1,21 @@
-package client
+package producer
 
 import (
 	"encoding/json"
+	"gomq/client"
 	"gomq/common"
 )
 
 type Producer struct {
-	bc *BasicClient
+	bc *client.BasicClient
 }
 
 func NewProducer(protocol, host string, port, timeout int) *Producer {
-	return &Producer{bc: &BasicClient{
-			protocol:protocol,
-			host:host,
-			port:port,
-			timeout:timeout,
+	return &Producer{bc: &client.BasicClient{
+			Protocol:protocol,
+			Host:host,
+			Port:port,
+			Timeout:timeout,
 	}}
 }
 

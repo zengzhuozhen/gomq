@@ -1,17 +1,20 @@
 <h1>Go-MQ</h1>
 
-implement a sample message queue by golang .
+implement a sample message queue by golang . :smile:	
 
 TODO 
  -
  - Feature
     - partition
     - data store
+    - transaction message
+    - 
     
  - Fix
-    - Bug : 多个消费者消费消息貌似出现拿错数据的问题
-    
+    - ~~Bug : 多个消费者消费消息貌似出现拿错数据的问题~~ 
+    - Bug : 貌似消费端会有所谓的 "粘包" 的问题，也许要定义一个通讯协议
+   处理这个问题 EOF \r\n ?
  
-:smile:	:smile:	:smile:	
+ :sunny: :sunny: :sunny:
     
 

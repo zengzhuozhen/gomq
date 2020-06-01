@@ -11,16 +11,17 @@ import (
 	"time"
 )
 
+
 func main() {
 
 	queue := common.NewQueue()
 	ctx := context.Background()
 	consumerPool := consumer.NewPool()
-	producerChannel := make(chan common.Message)
-	consumerChannel := make(chan common.Message)
+	producerChannel := make(common.MsgChan,1024)
+	consumerChanAssemble := make(map[string]common.MsgChan,1024)
 
 	producerReceiver := producer.NewProducerReceiver(producerChannel, queue)
-	consumerReceiver := consumer.NewConsumerReceiver(consumerChannel, consumerPool)
+	consumerReceiver := consumer.NewConsumerReceiver(consumerChanAssemble, consumerPool)
 
 	g := errgroup.Group{}
 	g.Go(func() error {
@@ -48,7 +49,7 @@ func main() {
 				position := consumerPool.Position[uid]
 				if msg, err := queue.Pop(topic, position); err == nil {
 					consumerPool.UpdatePosition(uid)
-					consumerChannel <- msg
+					consumerChanAssemble[uid] <- msg
 				} else {
 					time.Sleep(100 * time.Millisecond)
 				}
@@ -58,7 +59,7 @@ func main() {
 
 	g.Go(func() error {
 		fmt.Println("开启tcp service...")
-		listener := service.NewListener("tcp", ":9000", consumerPool)
+		listener := service.NewListener("tcp", ":9000")
 		listener.Start(producerReceiver, consumerReceiver)
 		return nil
 	})

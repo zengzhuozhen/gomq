@@ -9,35 +9,53 @@ import (
 	"net"
 )
 
+
+
 type Receiver struct {
-	msgChan <-chan common.Message
-	pool    *Pool
+	chanAssemble map[string]common.MsgChan
+	pool         *Pool
 }
 
-func NewConsumerReceiver(msgChan chan common.Message, pool *Pool) *Receiver {
-	return &Receiver{msgChan: msgChan, pool: pool}
+func NewConsumerReceiver(chanAssemble map[string]common.MsgChan, pool *Pool) *Receiver {
+	return &Receiver{chanAssemble: chanAssemble, pool: pool}
 }
 
-func (c *Receiver) Consume(ctx context.Context, conn net.Conn) {
+func (r *Receiver)HandleConn(netPacket common.Packet,conn net.Conn){
+	connUid :=conn.RemoteAddr().String()
+  	r.pool.Add(connUid,netPacket.Topic,netPacket.Position)
+	r.chanAssemble[connUid] = make(common.MsgChan,1000)
+}
+
+func (r *Receiver)HandleQuit(connUid string){
+	r.pool.State[connUid] = false
+	close(r.chanAssemble[connUid])
+	delete(r.chanAssemble, connUid)
+}
+
+func (r *Receiver) Consume(ctx context.Context,conn net.Conn) {
+	connUid := conn.RemoteAddr().String()
 	for {
 		select {
-		case msg := <-c.msgChan:
-			connUid := conn.RemoteAddr().String()
-			fmt.Println("ip:" +connUid)
+		case msg := <-r.chanAssemble[connUid]:
+			// 防止多个管道同时竞争所有消息的问题,采用客户端连接池进行逻辑隔离解决
 			netPacket := common.Packet{
-				Flag:          common.S,
-				Message:       msg,
-				Topic:         c.pool.Topic[connUid],
+				Flag:    common.S,
+				Message: msg,
+				Topic:   r.pool.Topic[connUid],
 			}
 			if data, err := json.Marshal(netPacket); err == nil {
 				fmt.Printf("准备发送给客户端消费者: %s %+v", conn.RemoteAddr(), netPacket)
-				conn.Write(data)
+				n, err := conn.Write(data)
+				fmt.Println(n)
+				if err !=nil{
+					fmt.Println(err)
+				}
 			} else {
 				log.Fatalln(err.Error())
 			}
 		case <-ctx.Done():
 			fmt.Println("消费者连接已关闭，退出消费循环")
-			c.pool.State[conn.RemoteAddr().String()] = false
+			r.HandleQuit(connUid)
 			return
 		}
 	}

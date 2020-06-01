@@ -15,14 +15,12 @@ import (
 type Listener struct {
 	protocol     string
 	address      string
-	consumerPool *consumer.Pool
 }
 
-func NewListener(protocol, address string, consumerPool *consumer.Pool) *Listener {
+func NewListener(protocol, address string) *Listener {
 	return &Listener{
 		protocol:     protocol,
 		address:      address,
-		consumerPool: consumerPool,
 	}
 }
 
@@ -56,14 +54,13 @@ func (l *Listener) handleConn(conn net.Conn, producerRc *producer.Receiver, cons
 			return
 		}
 		data := packet[:n]
-		fmt.Println(conn.RemoteAddr().String() + ": 读到的数据为" + string(data))
 		netPacket := common.Packet{}
 		_ = json.Unmarshal(data, &netPacket)
 		switch netPacket.Flag {
 		case common.C: // 消费者连接
 			_ = conn.SetDeadline(time.Now().Add(100 * time.Second))
-			l.consumerPool.Add(conn.RemoteAddr().String(), netPacket.Topic,netPacket.Position)
-			go consumerRc.Consume(ctx, conn)
+			consumerRc.HandleConn(netPacket,conn)
+			go consumerRc.Consume(ctx,conn)
 		case common.CH: // 消费者心跳
 			_ = conn.SetDeadline(time.Now().Add(3 * time.Second))
 			continue
