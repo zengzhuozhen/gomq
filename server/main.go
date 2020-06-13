@@ -18,7 +18,7 @@ func main() {
 	ctx := context.Background()
 	consumerPool := consumer.NewPool()
 	producerChannel := make(common.MsgChan,1024)
-	consumerChanAssemble := make(map[string]common.MsgChan,1024)
+	consumerChanAssemble := make(map[string][]common.MsgChan,1024)
 
 	producerReceiver := producer.NewProducerReceiver(producerChannel, queue)
 	consumerReceiver := consumer.NewConsumerReceiver(consumerChanAssemble, consumerPool)
@@ -45,14 +45,17 @@ func main() {
 				continue
 			}
 			for _, uid := range activeConn {
-				topic := consumerPool.Topic[uid]
-				position := consumerPool.Position[uid]
-				if msg, err := queue.Pop(topic, position); err == nil {
-					consumerPool.UpdatePosition(uid)
-					consumerChanAssemble[uid] <- msg
-				} else {
-					time.Sleep(100 * time.Millisecond)
+				topicList := consumerPool.Topic[uid]
+				for k, topic := range  topicList{
+					position := consumerPool.Position[uid][k]
+					if msg, err := queue.Pop(topic, position); err == nil {
+						consumerPool.UpdatePosition(uid, topic)
+						consumerChanAssemble[uid][k] <- msg
+					} else {
+						time.Sleep(100 * time.Millisecond)
+					}
 				}
+
 			}
 		}
 	})

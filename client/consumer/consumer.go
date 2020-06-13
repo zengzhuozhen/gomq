@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"gomq/client"
 	"gomq/common"
-	"log"
+	"gomq/protocol"
+	protocolPacket "gomq/protocol/packet"
+	"net"
 	"time"
 )
 
@@ -22,38 +24,81 @@ func NewConsumer(protocol, host string, port, timeout int) *Consumer {
 	}}
 }
 
-func (c *Consumer) Subscribe(topic string) {
-	conn := c.bc.Connect()
-	sendData := make([]byte, 1024)
+func (c *Consumer) Subscribe(topic []string) {
+	conn, err := c.bc.Connect()
+	if err != nil {
+		panic("连接服务端失败")
+	}
 	go func() {
 		// 连接服务端
-		initPosition := 0
-		sendData = consumerNetPacket(topic, int64(initPosition))
-		conn.Write(sendData)
+		//initPosition := 0
+		//sendData = consumerNetPacket(topic, int64(initPosition))
+		subscribePacket := protocolPacket.NewSubscribePacket(1, topic, 0)
+		err := subscribePacket.Write(conn)
+		if err != nil {
+			fmt.Println("客户端订阅主题失败:发送subscribe")
+		}
+		var fh protocolPacket.FixedHeader
+		if err := fh.Read(conn); err != nil {
+			fmt.Errorf("读取包头失败", err)
+		}
 		tickTimer := time.NewTicker(1 * time.Second)
 		for {
 			select {
 			case <-tickTimer.C:
 				//fmt.Println("发送心跳包")
-				conn.Write(consumeHeartPack())
+				pingReqPack := protocolPacket.NewPingReqPacket()
+				pingReqPack.Write(conn)
 			}
 		}
 	}()
+	time.Sleep(1 * time.Second) //等待一下连接建立
 	for {
-		receData := make([]byte, 1024)
-		n, err := conn.Read(receData)
-		if err != nil {
-			log.Fatal(err)
-		}
-		fmt.Println(string(receData))
-		fmt.Printf("\n")
-		netPacket := common.Packet{}
-		json.Unmarshal(receData[:n], &netPacket)
-		fmt.Println("接收到服务端返回数据:")
+		c.ReadPacket(conn)
+
 	}
 }
 
-func consumerNetPacket(topic string,initPosition int64) []byte {
+func (c *Consumer)ReadPacket(r net.Conn) (protocolPacket.ControlPacket, error) {
+	// 读取数据包
+	var fh protocolPacket.FixedHeader
+	if err := fh.Read(r); err != nil {
+		fmt.Errorf("读取包头失败", err)
+	}
+
+	var packet protocolPacket.ControlPacket
+	switch protocolPacket.DecodePacketType(fh.TypeAndReserved) {
+	case byte(protocol.SUBACK):
+		var subAckPacket protocolPacket.SubAckPacket
+		err := subAckPacket.Read(r, fh)
+		if err != nil {
+			fmt.Println("客户端订阅主题失败:等待subAck")
+			r.Close()
+		}
+	case byte(protocol.UNSUBACK):
+		var fh protocolPacket.FixedHeader
+		var unSubAckPacket protocolPacket.UnSubAckPacket
+		_ = fh.Read(r)
+		unSubAckPacket.Read(r, fh)
+		fmt.Println("收到服务端确认取消订阅")
+	case byte(protocol.PINGRESP):
+		fmt.Println("收到服务端心跳回应")
+	}
+	return packet, nil
+}
+
+func (c *Consumer) UnSubscribe(conn net.Conn, topic []string, identifier uint16) {
+	unSubscribePack := protocolPacket.NewUnSubscribePacket(identifier, topic)
+	_ = unSubscribePack.Write(conn)
+}
+
+func (c *Consumer) DisConnect(conn net.Conn){
+	disConnectPack := protocolPacket.NewDisConnectPacketPacket()
+	disConnectPack.Write(conn)
+	conn.Close()
+}
+
+func consumerNetPacket(topic string, initPosition int64) []byte {
 	netPacket := common.Packet{
 		Flag:     common.C,
 		Message:  common.Message{},
@@ -64,11 +109,10 @@ func consumerNetPacket(topic string,initPosition int64) []byte {
 	return sendData
 }
 
-
 func consumeHeartPack() []byte {
 	netPacket := common.Packet{
-		Flag:          common.CH,
-		Message:       common.Message{},
+		Flag:    common.CH,
+		Message: common.Message{},
 	}
 	sendData, _ := json.Marshal(netPacket)
 	return sendData
