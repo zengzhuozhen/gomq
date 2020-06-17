@@ -1,6 +1,12 @@
 <h1>Go-MQ</h1>
 
-implement a sample message queue by golang . :smile:	
+implement a sample message queue by golang . :smile:
+
+
+ALREADY IMPLEMENT
+ -
+ - MQTT 协议
+ - Topic	
 
 TODO 
  -
