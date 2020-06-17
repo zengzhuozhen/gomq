@@ -32,16 +32,16 @@ func (p *Pool) ForeachActiveConn() []string {
 	return connUids
 }
 
-func (p *Pool) Add(connUid, topic string, position int64) {
+func (p *Pool) Add(connUid string, topics []string) {
 	p.ConnUids = append(p.ConnUids, connUid)
 	p.State[connUid] = true
-	p.Position[connUid] = append(p.Position[connUid], position)
-	p.Topic[connUid] = append(p.Topic[connUid], topic)
+	p.Position[connUid] = make([]int64, len(topics))
+	p.Topic[connUid] = topics
 }
 
-func (p *Pool) UpdatePosition(uid,topic string) {
+func (p *Pool) UpdatePosition(uid, topic string) {
 	p.mu.Lock()
-	for k,v := range p.Topic[uid]{
+	for k, v := range p.Topic[uid] {
 		if topic == v {
 			p.Position[uid][k]++
 			break

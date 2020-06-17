@@ -22,9 +22,14 @@ func NewDisConnectPacketPacket() DisConnectPacket {
 
 func (d *DisConnectPacket) Read(r io.Reader, header FixedHeader) error {
 	d.FixedHeader = header
-	var err error
-	return err
+	return nil
 }
+
+func (c *DisConnectPacket) ReadHeadOnly(r io.Reader, header FixedHeader) error {
+	c.FixedHeader = header
+	return nil
+}
+
 
 func (d *DisConnectPacket) Write(w io.Writer) error {
 	var body bytes.Buffer

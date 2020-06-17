@@ -50,21 +50,6 @@ func HandleRetain() {
 	// todo
 }
 
-func (p *PublishPacket) Write(w io.Writer) error {
-	var body bytes.Buffer
-	var err error
-
-	body.Write(utils.EncodeString(p.TopicName))
-	if p.PacketIdentifier != 0 {
-		body.Write(utils.EncodeUint16(p.PacketIdentifier))
-	}
-	packet := p.FixedHeader.Pack()
-	packet.Write(body.Bytes())
-	packet.Write(p.Payload)
-	_, err = w.Write(packet.Bytes())
-	return err
-}
-
 func (p *PublishPacket) Read(r io.Reader, header FixedHeader) error {
 	p.FixedHeader = header
 	var payloadLength = header.RemainingLength
@@ -88,5 +73,26 @@ func (p *PublishPacket) Read(r io.Reader, header FixedHeader) error {
 	p.Payload = make([]byte, payloadLength)
 	_, err = r.Read(p.Payload)
 	return nil
-
 }
+
+func (c *PublishPacket) ReadHeadOnly(r io.Reader, header FixedHeader) error {
+	c.FixedHeader = header
+	return nil
+}
+
+
+func (p *PublishPacket) Write(w io.Writer) error {
+	var body bytes.Buffer
+	var err error
+
+	body.Write(utils.EncodeString(p.TopicName))
+	if p.PacketIdentifier != 0 {
+		body.Write(utils.EncodeUint16(p.PacketIdentifier))
+	}
+	packet := p.FixedHeader.Pack()
+	packet.Write(body.Bytes())
+	packet.Write(p.Payload)
+	_, err = w.Write(packet.Bytes())
+	return err
+}
+

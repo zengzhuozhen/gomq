@@ -38,6 +38,11 @@ func (s *UnSubscribePacket) Read(r io.Reader, header FixedHeader) error {
 	return err
 }
 
+func (c *UnSubscribePacket) ReadHeadOnly(r io.Reader, header FixedHeader) error {
+	c.FixedHeader = header
+	return nil
+}
+
 func (s *UnSubscribePacket) Write(w io.Writer) error {
 	var body bytes.Buffer
 	var err error

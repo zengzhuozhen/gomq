@@ -18,8 +18,7 @@ func main() {
 	ctx := context.Background()
 	consumerPool := consumer.NewPool()
 	producerChannel := make(common.MsgChan,1024)
-	consumerChanAssemble := make(map[string][]common.MsgChan,1024)
-
+	consumerChanAssemble := make(map[string][]common.MsgChan ,1024)
 	producerReceiver := producer.NewProducerReceiver(producerChannel, queue)
 	consumerReceiver := consumer.NewConsumerReceiver(consumerChanAssemble, consumerPool)
 
@@ -50,7 +49,7 @@ func main() {
 					position := consumerPool.Position[uid][k]
 					if msg, err := queue.Pop(topic, position); err == nil {
 						consumerPool.UpdatePosition(uid, topic)
-						consumerChanAssemble[uid][k] <- msg
+						consumerReceiver.ChanAssemble[uid][k] <- msg
 					} else {
 						time.Sleep(100 * time.Millisecond)
 					}

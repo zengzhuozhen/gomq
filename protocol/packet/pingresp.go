@@ -22,8 +22,12 @@ func NewPingRespPacket() PingRespPacket {
 
 func (p *PingRespPacket) Read(r io.Reader, header FixedHeader) error {
 	p.FixedHeader = header
-	var err error
-	return err
+	return nil
+}
+
+func (c *PingRespPacket) ReadHeadOnly(r io.Reader, header FixedHeader) error {
+	c.FixedHeader = header
+	return nil
 }
 
 func (p *PingRespPacket) Write(w io.Writer) error {

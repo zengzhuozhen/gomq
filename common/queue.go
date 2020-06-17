@@ -2,6 +2,7 @@ package common
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 )
 
@@ -20,6 +21,7 @@ func NewQueue() *Queue {
 
 func (q *Queue) Push(topic string, message Message) {
 	q.mu.Lock()
+	fmt.Println(topic)
 	q.localQueue[topic] = append(q.localQueue[topic],message)
 	q.mu.Unlock()
 }

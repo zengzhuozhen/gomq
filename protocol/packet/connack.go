@@ -41,6 +41,11 @@ func (c *ConnAckPacket) Read(r io.Reader, header FixedHeader) error {
 	return err
 }
 
+func (c *ConnAckPacket) ReadHeadOnly(r io.Reader, header FixedHeader) error {
+	c.FixedHeader = header
+	return nil
+}
+
 func (c *ConnAckPacket) Write(w io.Writer) error {
 	var body bytes.Buffer
 	var err error
@@ -51,3 +56,4 @@ func (c *ConnAckPacket) Write(w io.Writer) error {
 	_, err = w.Write(packet.Bytes())
 	return err
 }
+

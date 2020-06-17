@@ -40,6 +40,11 @@ func (s *SubscribePacket) Read(r io.Reader, header FixedHeader) error {
 	return err
 }
 
+func (s *SubscribePacket) ReadHeadOnly(r io.Reader, header FixedHeader) error {
+	s.FixedHeader = header
+	return nil
+}
+
 func (s *SubscribePacket) Write(w io.Writer) error {
 	var body bytes.Buffer
 	var err error

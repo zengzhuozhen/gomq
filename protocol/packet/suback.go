@@ -39,6 +39,11 @@ func (s *SubAckPacket) Read(r io.Reader, header FixedHeader) error {
 	return err
 }
 
+func (s *SubAckPacket) ReadHeadOnly(r io.Reader, header FixedHeader) error {
+	s.FixedHeader = header
+	return nil
+}
+
 func (s *SubAckPacket) Write(w io.Writer) error {
 	var body bytes.Buffer
 	var err error

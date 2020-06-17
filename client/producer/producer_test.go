@@ -11,13 +11,13 @@ import (
 
 
 func TestProducer_Publish_Topic_A(t *testing.T) {
-	producer := 	NewProducer("tcp","127.0.0.1",9000,10)
+	producer := 	NewProducer("tcp","127.0.0.1",9000,1000)
 	mess := common.Message{
 		MsgId: 1,
 		MsgKey: "test",
 		Body:   "hello world A ",
 	}
-	producer.Publish("A",mess,2)
+	producer.Publish("A",mess,0)
 }
 
 func TestProducer_Publish_Topic_B(t *testing.T) {

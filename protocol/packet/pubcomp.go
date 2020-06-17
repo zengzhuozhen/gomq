@@ -29,6 +29,11 @@ func (p *PubCompPacket) Read(r io.Reader, header FixedHeader) error {
 	return err
 }
 
+func (c *PubCompPacket) ReadHeadOnly(r io.Reader, header FixedHeader) error {
+	c.FixedHeader = header
+	return nil
+}
+
 func (p *PubCompPacket) Write(w io.Writer) error {
 	var body bytes.Buffer
 	var err error

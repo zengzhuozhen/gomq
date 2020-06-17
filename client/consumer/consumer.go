@@ -1,7 +1,6 @@
 package consumer
 
 import (
-	"encoding/json"
 	"fmt"
 	"gomq/client"
 	"gomq/common"
@@ -26,47 +25,46 @@ func NewConsumer(protocol, host string, port, timeout int) *Consumer {
 
 func (c *Consumer) Subscribe(topic []string) {
 	conn, err := c.bc.Connect()
+	fmt.Println(conn.LocalAddr().String())
 	if err != nil {
 		panic("连接服务端失败")
 	}
-	go func() {
-		// 连接服务端
-		//initPosition := 0
-		//sendData = consumerNetPacket(topic, int64(initPosition))
-		subscribePacket := protocolPacket.NewSubscribePacket(1, topic, 0)
-		err := subscribePacket.Write(conn)
-		if err != nil {
-			fmt.Println("客户端订阅主题失败:发送subscribe")
-		}
-		var fh protocolPacket.FixedHeader
-		if err := fh.Read(conn); err != nil {
-			fmt.Errorf("读取包头失败", err)
-		}
-		tickTimer := time.NewTicker(1 * time.Second)
+	// 连接服务端
+	subscribePacket := protocolPacket.NewSubscribePacket(1, topic, 0)
+	err = subscribePacket.Write(conn)
+	if err != nil {
+		fmt.Println("客户端订阅主题失败:发送subscribe")
+	}
+	fmt.Println("发送subscribe")
+
+	go c.Heart(conn, 3 * time.Second)
+	for {
+		c.ReadPacket(conn)
+	}
+}
+
+func (c *Consumer) Heart(conn net.Conn, duration time.Duration){
+	func() {
+		tickTimer := time.NewTicker(duration)
 		for {
 			select {
 			case <-tickTimer.C:
-				//fmt.Println("发送心跳包")
+				fmt.Println("发送心跳包")
 				pingReqPack := protocolPacket.NewPingReqPacket()
 				pingReqPack.Write(conn)
 			}
 		}
 	}()
-	time.Sleep(1 * time.Second) //等待一下连接建立
-	for {
-		c.ReadPacket(conn)
-
-	}
 }
 
-func (c *Consumer)ReadPacket(r net.Conn) (protocolPacket.ControlPacket, error) {
+func (c *Consumer) ReadPacket(r net.Conn) {
 	// 读取数据包
 	var fh protocolPacket.FixedHeader
 	if err := fh.Read(r); err != nil {
-		fmt.Errorf("读取包头失败", err)
+		fmt.Errorf("读取包头失败%+v", err)
+		return
 	}
 
-	var packet protocolPacket.ControlPacket
 	switch protocolPacket.DecodePacketType(fh.TypeAndReserved) {
 	case byte(protocol.SUBACK):
 		var subAckPacket protocolPacket.SubAckPacket
@@ -75,6 +73,7 @@ func (c *Consumer)ReadPacket(r net.Conn) (protocolPacket.ControlPacket, error) {
 			fmt.Println("客户端订阅主题失败:等待subAck")
 			r.Close()
 		}
+		fmt.Println("收到服务端确认订阅消息")
 	case byte(protocol.UNSUBACK):
 		var fh protocolPacket.FixedHeader
 		var unSubAckPacket protocolPacket.UnSubAckPacket
@@ -83,8 +82,17 @@ func (c *Consumer)ReadPacket(r net.Conn) (protocolPacket.ControlPacket, error) {
 		fmt.Println("收到服务端确认取消订阅")
 	case byte(protocol.PINGRESP):
 		fmt.Println("收到服务端心跳回应")
+	default:
+		// 普通消息
+		var messByte [1000]byte
+		n, _ :=r.Read(messByte[:])
+
+		head := fh.Pack()
+		data := append(head.Bytes(),messByte[:n]...)
+		message := new(common.Message)
+		message = message.UnPack(data)
+		fmt.Printf("收到服务端消息%+v",message)
 	}
-	return packet, nil
 }
 
 func (c *Consumer) UnSubscribe(conn net.Conn, topic []string, identifier uint16) {
@@ -92,28 +100,8 @@ func (c *Consumer) UnSubscribe(conn net.Conn, topic []string, identifier uint16)
 	_ = unSubscribePack.Write(conn)
 }
 
-func (c *Consumer) DisConnect(conn net.Conn){
+func (c *Consumer) DisConnect(conn net.Conn) {
 	disConnectPack := protocolPacket.NewDisConnectPacketPacket()
 	disConnectPack.Write(conn)
 	conn.Close()
-}
-
-func consumerNetPacket(topic string, initPosition int64) []byte {
-	netPacket := common.Packet{
-		Flag:     common.C,
-		Message:  common.Message{},
-		Topic:    topic,
-		Position: initPosition,
-	}
-	sendData, _ := json.Marshal(netPacket)
-	return sendData
-}
-
-func consumeHeartPack() []byte {
-	netPacket := common.Packet{
-		Flag:    common.CH,
-		Message: common.Message{},
-	}
-	sendData, _ := json.Marshal(netPacket)
-	return sendData
 }

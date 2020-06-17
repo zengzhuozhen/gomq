@@ -49,7 +49,7 @@ func (l *Listener) Start(producer *producer.Receiver, consumer *consumer.Receive
 func (l *Listener) holdConn(conn net.Conn, producerRc *producer.Receiver, consumerRc *consumer.Receiver) {
 	// 如果没有可读数据，也就是读 buffer 为空，则阻塞
 	ctx, cancel := context.WithCancel(context.Background())
-	_ = conn.SetDeadline(time.Now().Add(10 * time.Second))
+	_ = conn.SetDeadline(time.Now().Add(1000 * time.Second))
 	for {
 		packet, err := ReadPacket(conn)
 		if err != nil {
@@ -59,12 +59,11 @@ func (l *Listener) holdConn(conn net.Conn, producerRc *producer.Receiver, consum
 			return
 		}
 
-
 		switch packet.(type) {
 		case *protocolPacket.PublishPacket:
-			producerRc.ProduceAndResponse(conn,packet.(*protocolPacket.PublishPacket))
+			producerRc.ProduceAndResponse(conn, packet.(*protocolPacket.PublishPacket))
 		case *protocolPacket.SubscribePacket:
-			consumerRc.ConsumeAndResponse(ctx,conn,packet.(*protocolPacket.SubscribePacket))
+			consumerRc.ConsumeAndResponse(ctx, conn, packet.(*protocolPacket.SubscribePacket))
 		case *protocolPacket.UnSubscribePacket:
 			consumerRc.CloseConsumer(conn, packet.(*protocolPacket.UnSubscribePacket))
 		case *protocolPacket.PingReqPacket:
@@ -73,37 +72,15 @@ func (l *Listener) holdConn(conn net.Conn, producerRc *producer.Receiver, consum
 			cancel()
 			conn.Close()
 		}
-
-		//data = data[:n]
-		//netPacket := common.Packet{}
-		//_ = json.Unmarshal(data, &netPacket)
-		//switch netPacket.Flag {
-		//case common.C: // 消费者连接
-		//	consumerRc.HandleConn(netPacket, conn)
-		//	go consumerRc.Consume(ctx, conn)
-		//case common.CH: // 消费者心跳
-		//	_ = conn.SetDeadline(time.Now().Add(3 * time.Second))
-		//	continue
-		//case common.P: // 生产者连接
-		//	_ = conn.Close()
-		//	return
-		//}
 	}
-}
-
-func getPackLen(bytes []byte, i int) (fieldLength, remainingLength int) {
-	if bytes[0] > 128 {
-		return getPackLen(bytes[1:], i+1)
-	}
-	return i, utils.BytesToInt(bytes[:i])
 }
 
 func handleConnectProtocol(conn net.Conn) bool {
 	var connPacket protocolPacket.ConnectPacket
 	var fh protocolPacket.FixedHeader
 	initTime := time.Now()
-	if err := fh.Read(conn);err != nil{
-		fmt.Errorf("读取包头失败",err)
+	if err := fh.Read(conn); err != nil {
+		fmt.Errorf("读取包头失败", err)
 	}
 	err := connPacket.Read(conn, fh)
 	if err != nil || time.Now().Sub(initTime) > 3*time.Second {
@@ -111,7 +88,6 @@ func handleConnectProtocol(conn net.Conn) bool {
 		conn.Close()
 		return false
 	}
-
 
 	//----判断是否满足协议规范-----
 
@@ -165,27 +141,26 @@ func responseConnectAck(conn net.Conn, code byte) {
 // 读取数据包
 func ReadPacket(r io.Reader) (protocolPacket.ControlPacket, error) {
 	var fh protocolPacket.FixedHeader
-	if err := fh.Read(r);err != nil{
-		fmt.Errorf("读取包头失败",err)
+	if err := fh.Read(r); err != nil {
+		fmt.Errorf("读取包头失败", err)
+		return nil,err
 	}
 
 	var packet protocolPacket.ControlPacket
 
 	switch protocolPacket.DecodePacketType(fh.TypeAndReserved) {
 	case byte(protocol.PUBLISH):
-		//todo
 		packet = &protocolPacket.PublishPacket{}
-		packet.Read(r,fh)
+		packet.Read(r, fh)
 	case byte(protocol.SUBSCRIBE):
 		packet = &protocolPacket.SubscribePacket{}
-		packet.Read(r,fh)
-		// todo
+		packet.ReadHeadOnly(r, fh)
 	case byte(protocol.UNSUBSCRIBE):
 		packet = &protocolPacket.UnSubscribePacket{}
-		packet.Read(r,fh)
+		packet.ReadHeadOnly(r, fh)
 	case byte(protocol.PINGREQ):
 		packet = &protocolPacket.PingReqPacket{}
-		packet.Read(r,fh)
+		packet.Read(r, fh)
 	}
-	return packet,nil
+	return packet, nil
 }
