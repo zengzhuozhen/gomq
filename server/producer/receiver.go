@@ -9,21 +9,13 @@ import (
 )
 
 type Receiver struct {
-	msgChan chan<- common.Message
 	queue   *common.Queue
 }
 
-func NewProducerReceiver(msgChan chan common.Message, queue *common.Queue) *Receiver {
+func NewProducerReceiver(queue *common.Queue) *Receiver {
 	return &Receiver{
-		msgChan: msgChan,
 		queue:   queue,
 	}
-}
-
-func (p *Receiver) Produce(topic string, msg common.Message) {
-	fmt.Printf("主题 %s 生产了: %s ", topic, msg.MsgKey)
-	p.queue.Push(topic, msg)
-	p.msgChan <- msg
 }
 
 func (p *Receiver) ProduceAndResponse(conn net.Conn ,publishPacket *protocolPacket.PublishPacket) {
@@ -56,7 +48,7 @@ func (p *Receiver) ProduceAndResponse(conn net.Conn ,publishPacket *protocolPack
 	message = message.UnPack(publishPacket.Payload)
 	fmt.Printf("主题 %s 生产了: %s ", publishPacket.TopicName,message.MsgKey )
 	p.queue.Push(publishPacket.TopicName, *message)
-	p.msgChan <- *message
+	fmt.Println("记录入队数据", message.MsgKey)
 
 }
 
@@ -64,8 +56,6 @@ func responsePubAck(conn net.Conn,identify uint16) {
 	fmt.Println("发送puback")
 	pubAckPacket := protocolPacket.NewPubAckPacket(identify)
 	pubAckPacket.Write(conn)
-	//data := utils.StructToBytes(pubAckPacket)
-	//conn.Write(data)
 }
 
 func responsePubRec(conn net.Conn, identify uint16) {
@@ -73,7 +63,6 @@ func responsePubRec(conn net.Conn, identify uint16) {
 	// PUBREC – 发布收到（QoS 2，第一步)
 	pubRecPacket := protocolPacket.NewPubRecPacket(identify)
 	pubRecPacket.Write(conn)
-
 
 	// 等待 rel
 	var fh protocolPacket.FixedHeader

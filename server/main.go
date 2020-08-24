@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"golang.org/x/sync/errgroup"
 	"gomq/common"
@@ -13,27 +12,13 @@ import (
 
 
 func main() {
-
 	queue := common.NewQueue()
-	ctx := context.Background()
 	consumerPool := consumer.NewPool()
-	producerChannel := make(common.MsgChan,1024)
-	consumerChanAssemble := make(map[string][]common.MsgChan ,1024)
-	producerReceiver := producer.NewProducerReceiver(producerChannel, queue)
+	consumerChanAssemble := make(map[string][]common.MsgChan, 1024)
+	producerReceiver := producer.NewProducerReceiver(queue)
 	consumerReceiver := consumer.NewConsumerReceiver(consumerChanAssemble, consumerPool)
 
 	g := errgroup.Group{}
-	g.Go(func() error {
-		fmt.Println("监听发布....")
-		for {
-			select {
-			case msg := <-producerChannel:
-				fmt.Println("记录入队数据", msg.MsgKey)
-			case <-ctx.Done():
-				return ctx.Err()
-			}
-		}
-	})
 
 	g.Go(func() error {
 		fmt.Println("监听消费....")
@@ -45,7 +30,7 @@ func main() {
 			}
 			for _, uid := range activeConn {
 				topicList := consumerPool.Topic[uid]
-				for k, topic := range  topicList{
+				for k, topic := range topicList {
 					position := consumerPool.Position[uid][k]
 					if msg, err := queue.Pop(topic, position); err == nil {
 						consumerPool.UpdatePosition(uid, topic)
@@ -54,13 +39,12 @@ func main() {
 						time.Sleep(100 * time.Millisecond)
 					}
 				}
-
 			}
 		}
 	})
 
 	g.Go(func() error {
-		fmt.Println("开启tcp service...")
+		fmt.Println("开启tcp server...")
 		listener := service.NewListener("tcp", ":9000")
 		listener.Start(producerReceiver, consumerReceiver)
 		return nil
