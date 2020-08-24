@@ -20,9 +20,10 @@ func NewConsumerReceiver(chanAssemble map[string][]common.MsgChan, pool *Pool) *
 }
 
 func (r *Receiver) HandleQuit(connUid string) {
-	r.pool.State[connUid] = false
+	r.pool.State.Store(connUid, false)
 	for _, v := range r.ChanAssemble[connUid] {
-		if v != nil {
+		_,isClose := <-v
+		if v != nil && !isClose {
 			close(v)
 		}
 	}
@@ -55,35 +56,27 @@ func (r *Receiver) ConsumeAndResponse(ctx context.Context, conn net.Conn, packet
 	if err != nil {
 		fmt.Println("返回subAck失败", err)
 	}
-	for k, v := range TopicList {
+	for k, topic := range TopicList {
 		tempChan := make(common.MsgChan)
 		r.ChanAssemble[connUid] = append(r.ChanAssemble[connUid], tempChan)
-		fmt.Println(r.ChanAssemble)
-		go r.listenMsgChan(k, v, connUid, conn)
+		go r.listenMsgChan(ctx,k, topic, connUid, conn)
 	}
-	go func(connUid string) {
-		select {
-		case <-ctx.Done():
-			fmt.Println("消费者连接已关闭，退出消费循环")
-			r.HandleQuit(connUid)
-			return
-		}
-	}(connUid)
-
 }
 
-func (r *Receiver) listenMsgChan(k int, topic, connUid string, conn net.Conn) {
-
-
+func (r *Receiver) listenMsgChan(ctx context.Context,k int, topic, connUid string, conn net.Conn) {
 	for {
 		select {
 		case msg := <-r.ChanAssemble[connUid][k]:
 			// 防止多个管道同时竞争所有消息的问题,采用客户端连接池进行逻辑隔离解决
 			messagePacket := msg.Pack()
-			fmt.Println("准备推送消息", messagePacket)
+			fmt.Printf("准备推送消息:{Topic:'%s'} {Body:'%s'}",topic, msg.Body)
 			if _, err := conn.Write(messagePacket); err != nil {
 				fmt.Println(err)
 			}
+		case <-ctx.Done():
+			fmt.Printf("客户端{socket:'%s'}连接关闭，退出消费",connUid)
+			r.HandleQuit(connUid)
+			return
 		}
 	}
 }

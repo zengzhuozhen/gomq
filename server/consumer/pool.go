@@ -6,7 +6,7 @@ import (
 
 type Pool struct {
 	ConnUids []string
-	State    map[string]bool
+	State    *sync.Map
 	Position map[string][]int64
 	Topic    map[string][]string
 	mu       sync.Mutex
@@ -15,7 +15,7 @@ type Pool struct {
 func NewPool() *Pool {
 	return &Pool{
 		ConnUids: []string{},
-		State:    make(map[string]bool, 1024),
+		State:    new(sync.Map),
 		Position: make(map[string][]int64, 1024),
 		Topic:    make(map[string][]string, 1024),
 		mu:       sync.Mutex{},
@@ -25,7 +25,11 @@ func NewPool() *Pool {
 func (p *Pool) ForeachActiveConn() []string {
 	connUids := make([]string, 0)
 	for _, i := range p.ConnUids {
-		if p.State[i] == true && len(p.Topic[i]) != 0 {
+		isActive, ok := p.State.Load(i)
+		if !ok {
+			panic("active not exist in state pool")
+		}
+		if isActive == true && len(p.Topic[i]) != 0 {
 			connUids = append(connUids, i)
 		}
 	}
@@ -34,7 +38,7 @@ func (p *Pool) ForeachActiveConn() []string {
 
 func (p *Pool) Add(connUid string, topics []string) {
 	p.ConnUids = append(p.ConnUids, connUid)
-	p.State[connUid] = true
+	p.State.Store(connUid, true)
 	p.Position[connUid] = make([]int64, len(topics))
 	p.Topic[connUid] = topics
 }

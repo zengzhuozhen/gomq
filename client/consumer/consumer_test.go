@@ -21,3 +21,9 @@ func TestConsumer_Subscribe_Topic_C(t *testing.T) {
 	topicList := []string{"C"}
 	consumer.Subscribe(topicList)
 }
+
+func TestConsumer_Subscribe_Topic_A_B_C(t *testing.T) {
+	consumer := NewConsumer("tcp","127.0.0.1",9000,50)
+	topicList := []string{"A","B","C"}
+	consumer.Subscribe(topicList)
+}
