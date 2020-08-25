@@ -48,6 +48,7 @@ func (p *Receiver) ProduceAndResponse(conn net.Conn ,publishPacket *protocolPack
 	message = message.UnPack(publishPacket.Payload)
 	fmt.Printf("主题 %s 生产了: %s ", publishPacket.TopicName,message.MsgKey )
 	p.queue.Push(publishPacket.TopicName, *message)
+	//todo 持久化
 	fmt.Println("记录入队数据", message.MsgKey)
 
 }

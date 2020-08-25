@@ -11,6 +11,8 @@ import (
 )
 
 
+
+
 func main() {
 	queue := common.NewQueue()
 	consumerPool := consumer.NewPool()
@@ -19,6 +21,11 @@ func main() {
 	consumerReceiver := consumer.NewConsumerReceiver(consumerChanAssemble, consumerPool)
 
 	g := errgroup.Group{}
+
+	g.Go(func() error {
+		fmt.Println("开启持久化协程")
+		return nil
+	})
 
 	g.Go(func() error {
 		fmt.Println("监听消费....")
