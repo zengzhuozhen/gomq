@@ -1,34 +1,36 @@
-package producer
+package client
 
 import (
 	"fmt"
-	"gomq/client"
 	"gomq/common"
 	"gomq/protocol"
 	"gomq/protocol/packet"
 	"log"
-	"net"
+	"sync"
 )
 
 type IProducer interface {
 	Publish(topic string, mess common.Message, QoS int)
+	WaitAck()
+	WaitRec()
+	GetAvailableIdentity() uint16
 }
 
 type Producer struct {
-	bc *client.BasicClient
+	client *client
 }
 
-func NewProducer(protocol, host string, port, timeout int) IProducer {
-	return &Producer{bc: &client.BasicClient{
-		Protocol: protocol,
-		Host:     host,
-		Port:     port,
-		Timeout:  timeout,
+func NewProducer(opts *clientOptions) IProducer {
+	return &Producer{client: &client{
+		options:      opts,
+		optionsMu:    sync.Mutex{},
+		conn:         nil,
+		IdentityPool: nil,
 	}}
 }
 
 func (p *Producer) Publish(topic string, mess common.Message, QoS int) {
-	conn, err := p.bc.Connect()
+	err := p.client.Connect()
 	if err != nil {
 		panic("连接服务端失败")
 	}
@@ -40,72 +42,68 @@ func (p *Producer) Publish(topic string, mess common.Message, QoS int) {
 	}
 	publishPacket := packet.NewPublishPacket(topic, mess, true, QoS, 0, identity)
 	//_, err = conn.Write(utils.StructToBytes(publishPacket))
-	err = publishPacket.Write(conn)
+	err = publishPacket.Write(p.client.conn)
 	if err != nil {
 		log.Fatal(err.Error())
 	}
 
 	switch QoS {
-	case protocol.AtMostOnce :
+	case protocol.AtMostOnce:
 		// noting to do
 	case protocol.AtLeastOnce:
-		p.WaitAck(conn)
+		p.WaitAck()
 		fmt.Println("读取到puback，完成publish")
 	case protocol.ExactOnce:
-		p.WaitRec(conn)
+		p.WaitRec()
 	}
-	conn.Close()
+	p.client.conn.Close()
 	return
-
 
 }
 
-func (p *Producer) WaitAck(r net.Conn) {
+func (p *Producer) WaitAck() {
 	var fh packet.FixedHeader
-	if err := fh.Read(r);err != nil{
-		fmt.Errorf("读取包头失败,%+v",err)
+	if err := fh.Read(p.client.conn); err != nil {
+		fmt.Errorf("读取包头失败,%+v", err)
 	}
 
 	pubAckPacket := packet.PubAckPacket{}
-	pubAckPacket.Read(r,fh)
+	pubAckPacket.Read(p.client.conn, fh)
 
-	p.bc.IdentityPool[int(pubAckPacket.PacketIdentifier)] = true
+	p.client.IdentityPool[int(pubAckPacket.PacketIdentifier)] = true
 	return
 }
 
-
-
-func (p *Producer) WaitRec(conn net.Conn) {
+func (p *Producer) WaitRec() {
 	//等待 rec
 	var fh packet.FixedHeader
 	var pubRecPacket packet.PubRecPacket
 
-	if err := fh.Read(conn);err !=nil{
-		fmt.Println("接收pubRec包头内容错误",err)
+	if err := fh.Read(p.client.conn); err != nil {
+		fmt.Println("接收pubRec包头内容错误", err)
 	}
-	_ = pubRecPacket.Read(conn, fh)
+	_ = pubRecPacket.Read(p.client.conn, fh)
 	fmt.Println("收到rec")
 	// PUBREL – 发布释放（QoS 2，第二步)
 	pubRelPacket := packet.NewPubRelPacket(pubRecPacket.PacketIdentifier)
-	_ = pubRelPacket.Write(conn)
+	_ = pubRelPacket.Write(p.client.conn)
 
 	// 等待 comp
 	var pubCompPacket packet.PubCompPacket
 	fh = *new(packet.FixedHeader)
-	if err := fh.Read(conn);err !=nil{
-		fmt.Println("接收pubComp包头内容错误",err)
+	if err := fh.Read(p.client.conn); err != nil {
+		fmt.Println("接收pubComp包头内容错误", err)
 	}
-	_ = pubCompPacket.Read(conn,fh)
+	_ = pubCompPacket.Read(p.client.conn, fh)
 	fmt.Println("收到comp")
-	p.bc.IdentityPool[int(pubCompPacket.PacketIdentifier)] = true
+	p.client.IdentityPool[int(pubCompPacket.PacketIdentifier)] = true
 	return
 }
 
-
 func (p *Producer) GetAvailableIdentity() uint16 {
-	for k, v := range p.bc.IdentityPool {
+	for k, v := range p.client.IdentityPool {
 		if v == true {
-			p.bc.IdentityPool[k] = false
+			p.client.IdentityPool[k] = false
 			return uint16(k)
 		}
 	}

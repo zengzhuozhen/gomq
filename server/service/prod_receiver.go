@@ -1,4 +1,4 @@
-package producer
+package service
 
 import (
 	"fmt"
@@ -8,17 +8,17 @@ import (
 	"net"
 )
 
-type Receiver struct {
+type ProducerReceiver struct {
 	queue   *common.Queue
 }
 
-func NewProducerReceiver(queue *common.Queue) *Receiver {
-	return &Receiver{
+func NewProducerReceiver(queue *common.Queue) *ProducerReceiver {
+	return &ProducerReceiver{
 		queue:   queue,
 	}
 }
 
-func (p *Receiver) ProduceAndResponse(conn net.Conn ,publishPacket *protocolPacket.PublishPacket) {
+func (p *ProducerReceiver) ProduceAndResponse(conn net.Conn ,publishPacket *protocolPacket.PublishPacket) {
 	bit4 := publishPacket.TypeAndReserved - 16 - 32 // 去除 MQTT协议类型
 	var needHandleRetain bool
 	if bit4 >= 8 {         //重发标志 DUP, 0 表示第一次发这个消息
@@ -48,7 +48,7 @@ func (p *Receiver) ProduceAndResponse(conn net.Conn ,publishPacket *protocolPack
 	message = message.UnPack(publishPacket.Payload)
 	fmt.Printf("主题 %s 生产了: %s ", publishPacket.TopicName,message.MsgKey )
 	p.queue.Push(publishPacket.TopicName, *message)
-	//todo 持久化
+
 	fmt.Println("记录入队数据", message.MsgKey)
 
 }

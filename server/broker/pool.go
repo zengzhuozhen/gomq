@@ -1,4 +1,4 @@
-package consumer
+package broker
 
 import (
 	"sync"

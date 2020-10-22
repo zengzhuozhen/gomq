@@ -6,8 +6,6 @@ import (
 	"gomq/protocol"
 	protocolPacket "gomq/protocol/packet"
 	"gomq/protocol/utils"
-	"gomq/server/consumer"
-	"gomq/server/producer"
 	"io"
 	"log"
 	"net"
@@ -27,7 +25,7 @@ func NewListener(protocol, address string) *Listener {
 	}
 }
 
-func (l *Listener) Start(producer *producer.Receiver, consumer *consumer.Receiver) {
+func (l *Listener) Start(producer *ProducerReceiver, consumer *ConsumerReceiver) {
 	listen, err := net.Listen(l.protocol, l.address)
 	if err != nil {
 		log.Fatal(err.Error())
@@ -46,7 +44,7 @@ func (l *Listener) Start(producer *producer.Receiver, consumer *consumer.Receive
 	}
 }
 
-func (l *Listener) holdConn(conn net.Conn, producerRc *producer.Receiver, consumerRc *consumer.Receiver) {
+func (l *Listener) holdConn(conn net.Conn, producerRc *ProducerReceiver, consumerRc *ConsumerReceiver) {
 	// 如果没有可读数据，也就是读 buffer 为空，则阻塞
 	ctx, cancel := context.WithCancel(context.Background())
 	_ = conn.SetDeadline(time.Now().Add(1000 * time.Second))

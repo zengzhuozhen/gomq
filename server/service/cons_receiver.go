@@ -1,4 +1,4 @@
-package consumer
+package service
 
 import (
 	"context"
@@ -6,20 +6,21 @@ import (
 	"gomq/common"
 	protocolPacket "gomq/protocol/packet"
 	"gomq/protocol/utils"
+	"gomq/server/broker"
 	"net"
 	"time"
 )
 
-type Receiver struct {
+type ConsumerReceiver struct {
 	ChanAssemble map[string][]common.MsgChan
-	pool         *Pool
+	pool         *broker.Pool
 }
 
-func NewConsumerReceiver(chanAssemble map[string][]common.MsgChan, pool *Pool) *Receiver {
-	return &Receiver{ChanAssemble: chanAssemble, pool: pool}
+func NewConsumerReceiver(chanAssemble map[string][]common.MsgChan, pool *broker.Pool) *ConsumerReceiver {
+	return &ConsumerReceiver{ChanAssemble: chanAssemble, pool: pool}
 }
 
-func (r *Receiver) HandleQuit(connUid string) {
+func (r *ConsumerReceiver) HandleQuit(connUid string) {
 	r.pool.State.Store(connUid, false)
 	for _, v := range r.ChanAssemble[connUid] {
 		_,isClose := <-v
@@ -30,7 +31,7 @@ func (r *Receiver) HandleQuit(connUid string) {
 	delete(r.ChanAssemble, connUid)
 }
 
-func (r *Receiver) ConsumeAndResponse(ctx context.Context, conn net.Conn, packet *protocolPacket.SubscribePacket) {
+func (r *ConsumerReceiver) ConsumeAndResponse(ctx context.Context, conn net.Conn, packet *protocolPacket.SubscribePacket) {
 	var TopicList []string
 	var QoSList []byte
 	packet.PacketIdentifier, _ = utils.DecodeUint16(conn)
@@ -63,7 +64,7 @@ func (r *Receiver) ConsumeAndResponse(ctx context.Context, conn net.Conn, packet
 	}
 }
 
-func (r *Receiver) listenMsgChan(ctx context.Context,k int, topic, connUid string, conn net.Conn) {
+func (r *ConsumerReceiver) listenMsgChan(ctx context.Context,k int, topic, connUid string, conn net.Conn) {
 	for {
 		select {
 		case msg := <-r.ChanAssemble[connUid][k]:
@@ -81,7 +82,7 @@ func (r *Receiver) listenMsgChan(ctx context.Context,k int, topic, connUid strin
 	}
 }
 
-func (r *Receiver) CloseConsumer(conn net.Conn, packet *protocolPacket.UnSubscribePacket) {
+func (r *ConsumerReceiver) CloseConsumer(conn net.Conn, packet *protocolPacket.UnSubscribePacket) {
 
 	connUid := conn.RemoteAddr().String()
 	for packet.RemainingLength > 0 {
@@ -101,7 +102,7 @@ func (r *Receiver) CloseConsumer(conn net.Conn, packet *protocolPacket.UnSubscri
 	unSubAck.Write(conn)
 }
 
-func (r *Receiver) Pong(conn net.Conn) {
+func (r *ConsumerReceiver) Pong(conn net.Conn) {
 	_ = conn.SetDeadline(time.Now().Add(5 * time.Second))
 	pingRespPack := protocolPacket.NewPingRespPacket()
 	err := pingRespPack.Write(conn)
