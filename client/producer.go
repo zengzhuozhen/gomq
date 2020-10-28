@@ -20,7 +20,7 @@ type Producer struct {
 	client *client
 }
 
-func NewProducer(opts *clientOptions) IProducer {
+func NewProducer(opts *Option) IProducer {
 	return &Producer{client: &client{
 		options:      opts,
 		optionsMu:    sync.Mutex{},

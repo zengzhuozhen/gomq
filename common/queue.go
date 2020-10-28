@@ -3,25 +3,26 @@ package common
 import (
 	"errors"
 	"fmt"
-	"gomq/server/store"
 	"sync"
 )
 
 type Queue struct {
-	topic          [1024]string
-	localQueue     map[string][]Message
-	offset         map[string]int64
-	mu             *sync.RWMutex
-	PersistentChan chan store.PersistentUnit
+	topic           [1024]string
+	localQueue      map[string][]Message
+	offset          map[string]int64
+	mu              *sync.RWMutex
+	PersistentChan  chan MessageUnit
+	MembersSyncChan chan MessageUnit
 }
 
 func NewQueue() *Queue {
 	return &Queue{
-		topic:          [1024]string{},
-		localQueue:     make(map[string][]Message, 1024),
-		offset:         make(map[string]int64),
-		mu:             new(sync.RWMutex),
-		PersistentChan: make(chan store.PersistentUnit),
+		topic:           [1024]string{},
+		localQueue:      make(map[string][]Message, 1024),
+		offset:          make(map[string]int64),
+		mu:              new(sync.RWMutex),
+		PersistentChan:  make(chan MessageUnit),
+		MembersSyncChan: make(chan MessageUnit),
 	}
 }
 
@@ -34,8 +35,9 @@ func (q *Queue) Push(topic string, message Message) {
 		q.localQueue[topic] = make([]Message, 1024)
 	}
 	q.localQueue[topic] = append(q.localQueue[topic], message)
-	persistentUnit := store.NewPersistentUnit(topic, message)
-	q.PersistentChan <- persistentUnit
+	messageUnit := NewPersistentUnit(topic, message)
+	q.PersistentChan <- messageUnit
+	q.MembersSyncChan <- messageUnit
 }
 
 func (q *Queue) Pop(topic string, position int64) (message Message, err error) {

@@ -1,4 +1,4 @@
-package broker
+package service
 
 import (
 	"sync"
@@ -23,7 +23,7 @@ func NewPool() *Pool {
 }
 
 func (p *Pool) ForeachActiveConn() []string {
-	connUids := make([]string, 0)
+	connUids := make([]string,0)
 	for _, i := range p.ConnUids {
 		isActive, ok := p.State.Load(i)
 		if !ok {

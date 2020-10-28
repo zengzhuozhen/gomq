@@ -21,7 +21,7 @@ type Consumer struct {
 	client *client
 }
 
-func NewConsumer(opts *clientOptions) IConsumer {
+func NewConsumer(opts *Option) IConsumer {
 	return &Consumer{client: &client{
 		options:      opts,
 		optionsMu:    sync.Mutex{},

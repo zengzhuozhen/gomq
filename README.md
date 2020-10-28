@@ -12,7 +12,7 @@ TODO
  -
  - Feature
     - partition
-    - data store
+    - data store 
     - transaction message
     - 
     

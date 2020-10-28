@@ -16,7 +16,7 @@ type Client interface {
 }
 
 type client struct {
-	options      *clientOptions
+	options      *Option
 	optionsMu    sync.Mutex
 	conn         net.Conn
 	IdentityPool map[int]bool
@@ -58,7 +58,7 @@ func (c *client) Connect() error {
 	return nil
 }
 
-type clientOptions struct {
+type Option struct {
 	Protocol string
 	Host     string
 	Port     int

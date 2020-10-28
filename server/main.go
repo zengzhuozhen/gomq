@@ -9,5 +9,6 @@ import (
 
 
 func main() {
-	broker.NewBroker(broker.Leader).Run()
+	opts := broker.NewOption(broker.Leader,"127.0.0.1:9001",[]string{"127.0.0.1:2379"})
+	broker.NewBroker(opts).Run()
 }

@@ -1,15 +1,22 @@
 package store
 
-import "sync"
+import (
+	"gomq/common"
+	"sync"
+)
 
 func NewMemStore() Store{
-	return new(memStore)
+	return &memStore{
+		locker: sync.RWMutex{},
+		isOpen: false,
+		data:   make([]common.MessageUnit,0),
+	}
 }
 
 type memStore struct {
 	locker sync.RWMutex
 	isOpen  bool
-	data  []PersistentUnit
+	data  []common.MessageUnit
 }
 
 
@@ -18,14 +25,13 @@ func (m *memStore) Open() {
 	m.locker.Lock()
 	defer m.locker.Unlock()
 	if m.isOpen == true{
-		panic("already open the member store")
+		return
 	}else {
-		m.data = make([]PersistentUnit,0)
 		m.isOpen = true
 	}
 }
 
-func (m *memStore) Append(item PersistentUnit) {
+func (m *memStore) Append(item common.MessageUnit) {
 	if m.isOpen == false{
 		panic("member store is not open")
 	}
@@ -41,7 +47,7 @@ func (m *memStore) SnapShot() {
 func (m *memStore) Reset() {
 	m.locker.Lock()
 	defer m.locker.Unlock()
-	m.data = make([]PersistentUnit,0)
+	m.data = make([]common.MessageUnit,0)
 }
 
 func (m *memStore) Load() {
@@ -51,9 +57,7 @@ func (m *memStore) Load() {
 func (m *memStore) Close() {
 	m.locker.RLock()
 	defer m.locker.RUnlock()
-	if m.isOpen == false{
-		panic("mem")
-	}
+	m.isOpen = false
 }
 
 func (m *memStore) Cap() int {

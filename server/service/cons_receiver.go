@@ -6,17 +6,16 @@ import (
 	"gomq/common"
 	protocolPacket "gomq/protocol/packet"
 	"gomq/protocol/utils"
-	"gomq/server/broker"
 	"net"
 	"time"
 )
 
 type ConsumerReceiver struct {
 	ChanAssemble map[string][]common.MsgChan
-	pool         *broker.Pool
+	pool         *Pool
 }
 
-func NewConsumerReceiver(chanAssemble map[string][]common.MsgChan, pool *broker.Pool) *ConsumerReceiver {
+func NewConsumerReceiver(chanAssemble map[string][]common.MsgChan, pool *Pool) *ConsumerReceiver {
 	return &ConsumerReceiver{ChanAssemble: chanAssemble, pool: pool}
 }
 
@@ -58,8 +57,7 @@ func (r *ConsumerReceiver) ConsumeAndResponse(ctx context.Context, conn net.Conn
 		fmt.Println("返回subAck失败", err)
 	}
 	for k, topic := range TopicList {
-		tempChan := make(common.MsgChan)
-		r.ChanAssemble[connUid] = append(r.ChanAssemble[connUid], tempChan)
+		r.ChanAssemble[connUid] = append(r.ChanAssemble[connUid],  make(common.MsgChan))
 		go r.listenMsgChan(ctx,k, topic, connUid, conn)
 	}
 }
