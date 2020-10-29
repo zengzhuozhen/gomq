@@ -7,8 +7,9 @@ import (
 type Pool struct {
 	ConnUids []string
 	State    *sync.Map
-	Position map[string][]int64
-	Topic    map[string][]string
+	// position 和 topic 总是相对应的
+	Position map[string][]int64		// Position[ConnId]{Topic_A_position,Topic_B_position,Topic_C_position}
+	Topic    map[string][]string    // Topic[ConnId]{Topic_A,Topic_B,Topic_C}
 	mu       sync.Mutex
 }
 

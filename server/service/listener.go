@@ -51,7 +51,7 @@ func (l *Listener) holdConn(conn net.Conn, producerRc *ProducerReceiver, consume
 	for {
 		packet, err := ReadPacket(conn)
 		if err != nil {
-			fmt.Println("客户端超时未响应或退出，关闭连接")
+			fmt.Println("客户端超时未响应或退出，关闭连接" + err.Error())
 			_ = conn.Close()
 			cancel()
 			return

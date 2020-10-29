@@ -20,14 +20,12 @@ import (
 	"time"
 )
 
-type Identity int8
-
 const LeaderPath = "/services/mq/broker_leader"
 const FollowerPath = "/services/mq/broker_follower"
 
 const (
-	Leader   Identity = 0
-	Follower Identity = 1
+	Leader = iota
+	Follower
 )
 
 const (
@@ -36,12 +34,12 @@ const (
 )
 
 type option struct {
-	identity Identity
+	identity int
 	endPoint string
 	etcdUrls []string
 }
 
-func NewOption(identity Identity, endPoint string, etcdUrls []string) *option {
+func NewOption(identity int, endPoint string, etcdUrls []string) *option {
 	return &option{
 		identity: identity,
 		endPoint: endPoint,
@@ -96,14 +94,16 @@ func (b *Broker) startPersistent() error {
 	b.persistent = store.NewFileStore()
 	b.persistent.Open()
 	b.persistent.Load()
-	for data := range b.queue.PersistentChan {
-		fmt.Println("接收到持久化信息")
-		b.persistent.Append(data)
-		if b.persistent.Cap()/100 == 0 { // 每100个元素做一次快照
-			b.persistent.SnapShot()
+	for {
+		select {
+		case data := <-b.queue.PersistentChan:
+			fmt.Println("接收到持久化消息单元")
+			b.persistent.Append(data)
+			if b.persistent.Cap()/100 == 0 { // 每100个元素做一次快照
+				b.persistent.SnapShot()
+			}
 		}
 	}
-	return nil
 }
 
 func (b *Broker) startConnLoop() error {
@@ -111,7 +111,7 @@ func (b *Broker) startConnLoop() error {
 	for {
 		activeConn := b.ConnectPool.ForeachActiveConn()
 		if len(activeConn) == 0 {
-			time.Sleep(100 * time.Millisecond)
+			time.Sleep(1000 * time.Millisecond)
 			continue
 		}
 		for _, uid := range activeConn {
@@ -122,6 +122,7 @@ func (b *Broker) startConnLoop() error {
 					b.ConnectPool.UpdatePosition(uid, topic)
 					b.ConsumerReceiver.ChanAssemble[uid][k] <- msg
 				} else {
+					fmt.Println(err)
 					time.Sleep(100 * time.Millisecond)
 				}
 			}
@@ -156,7 +157,7 @@ func (b *Broker) register() {
 	kv.Txn(ctx).
 		If(clientv3.Compare(clientv3.CreateRevision(LeaderPath), "=", 0)).
 		Then(clientv3.OpPut(LeaderPath, b.opt.endPoint)).
-		Else(clientv3.OpPut(fmt.Sprintf("%s/%s",FollowerPath,b.brokerId), b.opt.endPoint)).
+		Else(clientv3.OpPut(fmt.Sprintf("%s/%s", FollowerPath, b.brokerId), b.opt.endPoint)).
 		Commit()
 	// 获取leader地址
 	resp, _ := kv.Get(ctx, LeaderPath)
@@ -168,7 +169,7 @@ func (b *Broker) register() {
 		b.opt.identity = Follower
 	}
 
-	resp, _ = kv.Get(ctx, FollowerPath+"/")
+	resp, _ = kv.Get(ctx, FollowerPath+"/",clientv3.WithPrefix())
 	for _, i := range resp.Kvs {
 		b.FollowersRemote[string(i.Key)] = string(i.Value)
 	}
@@ -177,24 +178,27 @@ func (b *Broker) register() {
 func (b *Broker) startMemberSync() error {
 	fmt.Println("开启集群同步")
 
-	if len(b.FollowersRemote) < 1 {
-		return nil
-	}
-	for data := range b.queue.MembersSyncChan {
-		for _, member := range b.FollowersRemote {
-			host := strings.Split(member, ":")[0]
-			port, _ := strconv.Atoi(strings.Split(member, ":")[1])
-			producer := client.NewProducer(&client.Option{
-				Protocol: "tcp",
-				Host:     host,
-				Port:     port,
-				Timeout:  3,
-			})
-			producer.Publish(data.Topic, data.Data, 1)
+	for {
+		select {
+		case data := <-b.queue.MembersSyncChan:
+			fmt.Println("接收到同步信息")
+			if len(b.FollowersRemote) < 1 {
+				return nil
+			}
+			for _, member := range b.FollowersRemote {
+				// 此处应该过滤已死亡的节点，否则会hold住整个程序，导致无法正常运行
+				host := strings.Split(member, ":")[0]
+				port, _ := strconv.Atoi(strings.Split(member, ":")[1])
+				producer := client.NewProducer(&client.Option{
+					Protocol: "tcp",
+					Host:     host,
+					Port:     port,
+					Timeout:  3,
+				})
+				producer.Publish(data.Topic, data.Data, 1)
+			}
 		}
-
 	}
-	return nil
 }
 
 func (b *Broker) handleSignal() error {
@@ -217,7 +221,7 @@ func (b *Broker) gracefulStop() error {
 	if b.opt.identity == Leader {
 		_, err = kv.Delete(context.TODO(), LeaderPath)
 	} else {
-		_, err = kv.Delete(context.TODO(), fmt.Sprintf("%s/%s",FollowerPath,b.brokerId))
+		_, err = kv.Delete(context.TODO(), fmt.Sprintf("%s/%s", FollowerPath, b.brokerId))
 	}
 	return err
 }

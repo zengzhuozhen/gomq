@@ -25,8 +25,6 @@ func NewConsumer(opts *Option) IConsumer {
 	return &Consumer{client: &client{
 		options:      opts,
 		optionsMu:    sync.Mutex{},
-		conn:         nil,
-		IdentityPool: nil,
 	}}
 }
 

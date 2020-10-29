@@ -21,13 +21,13 @@ func (m *Message) UnPack(b []byte) *Message {
 type MsgChan chan Message
 
 
-// 持久化单元
+// 消息单元
 type MessageUnit struct {
 	Topic string
 	Data  Message
 }
 
-func NewPersistentUnit(topic string,data Message) MessageUnit {
+func NewMessageUnit(topic string,data Message) MessageUnit {
 	return MessageUnit{
 		Topic: topic,
 		Data:  data,

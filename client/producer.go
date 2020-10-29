@@ -24,8 +24,6 @@ func NewProducer(opts *Option) IProducer {
 	return &Producer{client: &client{
 		options:      opts,
 		optionsMu:    sync.Mutex{},
-		conn:         nil,
-		IdentityPool: nil,
 	}}
 }
 
