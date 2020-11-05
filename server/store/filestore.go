@@ -9,30 +9,27 @@ import (
 )
 
 type filestore struct {
-	locker   sync.RWMutex
+	locker   *sync.RWMutex
 	isOpen   bool
 	fileName string
 	file     *os.File
-	data     []common.MessageUnit
+	cap      int
 }
 
 func NewFileStore() Store {
 	return &filestore{
-		locker:   sync.RWMutex{},
+		locker:   new(sync.RWMutex),
 		isOpen:   false,
 		fileName: "/var/log/tempmq.log",
-		data:     make([]common.MessageUnit,0),
 	}
 }
 
 func (f *filestore) Open() {
 	f.locker.Lock()
 	defer f.locker.Unlock()
-	if f.isOpen == true{
-		return
-	}else{
-		file , err := os.OpenFile(f.fileName,os.O_WRONLY|os.O_APPEND,0666)
-		if err != nil{
+	if f.isOpen == false {
+		file, err := os.OpenFile(f.fileName, os.O_WRONLY|os.O_APPEND, 0666)
+		if err != nil {
 			fmt.Print(err.Error())
 			panic("couldn't open the file ")
 		}
@@ -41,15 +38,16 @@ func (f *filestore) Open() {
 }
 
 func (f *filestore) Append(item common.MessageUnit) {
-	f.data = append(f.data,item)
 	data := item.Data.Pack()
+	data = append(data, []byte("\n")...)
 	write := bufio.NewWriter(f.file)
-	_,err := write.Write(data)
-	if err != nil{
+	_, err := write.Write(data)
+	if err != nil {
 		panic(err.Error())
 	}
 	err = write.Flush()
-	if err != nil{
+	f.cap++
+	if err != nil {
 		panic(err.Error())
 	}
 }
@@ -67,9 +65,15 @@ func (f *filestore) Load() {
 }
 
 func (f *filestore) Close() {
-	f.file.Close()
+	f.locker.RLock()
+	defer f.locker.RUnlock()
+	if f.isOpen == true {
+		f.file.Close()
+		f.isOpen = false
+	}
+	return
 }
 
 func (f *filestore) Cap() int {
-	return len(f.data)
+	return f.cap
 }

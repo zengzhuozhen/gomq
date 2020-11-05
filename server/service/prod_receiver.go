@@ -44,7 +44,6 @@ func (p *ProducerReceiver) ProduceAndResponse(conn net.Conn ,publishPacket *prot
 		protocolPacket.HandleRetain()
 	}
 	message := new(common.Message)
-	fmt.Println(publishPacket.Payload)
 	message = message.UnPack(publishPacket.Payload)
 	fmt.Printf("主题 %s 生产了: %s ", publishPacket.TopicName,message.MsgKey )
 	p.queue.Push(publishPacket.TopicName, *message)

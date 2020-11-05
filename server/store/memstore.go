@@ -7,14 +7,14 @@ import (
 
 func NewMemStore() Store{
 	return &memStore{
-		locker: sync.RWMutex{},
+		locker: new(sync.RWMutex),
 		isOpen: false,
 		data:   make([]common.MessageUnit,0),
 	}
 }
 
 type memStore struct {
-	locker sync.RWMutex
+	locker *sync.RWMutex
 	isOpen  bool
 	data  []common.MessageUnit
 }

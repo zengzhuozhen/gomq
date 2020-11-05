@@ -20,8 +20,9 @@ import (
 	"time"
 )
 
+const LeaderId = "/service/mq/broker_leader_id"
 const LeaderPath = "/services/mq/broker_leader"
-const FollowerPath = "/services/mq/broker_follower"
+const FollowerPath = "/services/mq/broker_follower/"
 
 const (
 	Leader = iota
@@ -34,16 +35,18 @@ const (
 )
 
 type option struct {
-	identity int
-	endPoint string
-	etcdUrls []string
+	identity     int
+	endPoint     string
+	etcdUrls     []string
+	partitionNum int
 }
 
-func NewOption(identity int, endPoint string, etcdUrls []string) *option {
+func NewOption(identity int, endPoint string, etcdUrls []string, partition int) *option {
 	return &option{
-		identity: identity,
-		endPoint: endPoint,
-		etcdUrls: etcdUrls,
+		identity:     identity,
+		endPoint:     endPoint,
+		etcdUrls:     etcdUrls,
+		partitionNum: partition,
 	}
 }
 
@@ -56,8 +59,10 @@ type Broker struct {
 	ConsumerReceiver *service.ConsumerReceiver
 	ConnectPool      *service.Pool
 	persistent       store.Store
-	LeaderRemote     string
-	FollowersRemote  map[string]string
+	LeaderId         string
+	LeaderAddress    string
+	FollowersRemote  map[string]string // clientId : ipAddress
+	Partition        map[string]int    // clientId : Partition-nodeId
 	RegisterCenter   *clientv3.Client
 }
 
@@ -70,8 +75,11 @@ func NewBroker(opt *option) *Broker {
 	broker.ProducerReceiver = service.NewProducerReceiver(broker.queue)
 	broker.ConsumerReceiver = service.NewConsumerReceiver(make(map[string][]common.MsgChan, 1024), broker.ConnectPool)
 	broker.FollowersRemote = make(map[string]string)
+	broker.Partition = make(map[string]int)
 
 	broker.register()
+	broker.distributePartition()
+
 	fmt.Println("初始化broker成功，ID:" + broker.brokerId)
 	return broker
 }
@@ -99,7 +107,7 @@ func (b *Broker) startPersistent() error {
 		case data := <-b.queue.PersistentChan:
 			fmt.Println("接收到持久化消息单元")
 			b.persistent.Append(data)
-			if b.persistent.Cap()/100 == 0 { // 每100个元素做一次快照
+			if b.persistent.Cap()%100 == 0 { // 每100个元素做一次快照
 				b.persistent.SnapShot()
 			}
 		}
@@ -111,7 +119,7 @@ func (b *Broker) startConnLoop() error {
 	for {
 		activeConn := b.ConnectPool.ForeachActiveConn()
 		if len(activeConn) == 0 {
-			time.Sleep(1000 * time.Millisecond)
+			time.Sleep(100 * time.Millisecond)
 			continue
 		}
 		for _, uid := range activeConn {
@@ -122,7 +130,6 @@ func (b *Broker) startConnLoop() error {
 					b.ConnectPool.UpdatePosition(uid, topic)
 					b.ConsumerReceiver.ChanAssemble[uid][k] <- msg
 				} else {
-					fmt.Println(err)
 					time.Sleep(100 * time.Millisecond)
 				}
 			}
@@ -157,22 +164,45 @@ func (b *Broker) register() {
 	kv.Txn(ctx).
 		If(clientv3.Compare(clientv3.CreateRevision(LeaderPath), "=", 0)).
 		Then(clientv3.OpPut(LeaderPath, b.opt.endPoint)).
-		Else(clientv3.OpPut(fmt.Sprintf("%s/%s", FollowerPath, b.brokerId), b.opt.endPoint)).
+		Else(clientv3.OpPut(fmt.Sprintf("%s%s", FollowerPath, b.brokerId), b.opt.endPoint)).
 		Commit()
 	// 获取leader地址
 	resp, _ := kv.Get(ctx, LeaderPath)
 	leaderRemote := string(resp.Kvs[0].Value)
+	b.LeaderAddress = leaderRemote
 
 	if leaderRemote == b.opt.endPoint {
 		b.opt.identity = Leader
+		_, _ = kv.Put(ctx, LeaderId, b.brokerId)
 	} else {
 		b.opt.identity = Follower
 	}
+	// 获取leader ID
+	resp, _ = kv.Get(ctx, LeaderId)
+	b.LeaderId = string(resp.Kvs[0].Value)
 
-	resp, _ = kv.Get(ctx, FollowerPath+"/",clientv3.WithPrefix())
+	resp, _ = kv.Get(ctx, FollowerPath, clientv3.WithPrefix())
 	for _, i := range resp.Kvs {
-		b.FollowersRemote[string(i.Key)] = string(i.Value)
+		clientId := strings.SplitAfter(string(i.Key), FollowerPath)[1]
+		b.FollowersRemote[clientId] = string(i.Value)
 	}
+}
+
+func (b *Broker) distributePartition() {
+	fmt.Println("开始对各个节点分发partition")
+	partitionNum := b.opt.partitionNum
+	nodeId := 1
+	allNode := b.FollowersRemote
+	allNode[b.LeaderId] = b.LeaderAddress
+	for partitionNum > 0 {
+		for clientId, _ := range allNode {
+			b.Partition[clientId] = nodeId
+			nodeId++
+			partitionNum--
+		}
+	}
+	fmt.Println("目前分区情况：", b.Partition)
+
 }
 
 func (b *Broker) startMemberSync() error {
@@ -182,20 +212,20 @@ func (b *Broker) startMemberSync() error {
 		select {
 		case data := <-b.queue.MembersSyncChan:
 			fmt.Println("接收到同步信息")
-			if len(b.FollowersRemote) < 1 {
-				return nil
-			}
-			for _, member := range b.FollowersRemote {
-				// 此处应该过滤已死亡的节点，否则会hold住整个程序，导致无法正常运行
-				host := strings.Split(member, ":")[0]
-				port, _ := strconv.Atoi(strings.Split(member, ":")[1])
-				producer := client.NewProducer(&client.Option{
-					Protocol: "tcp",
-					Host:     host,
-					Port:     port,
-					Timeout:  3,
-				})
-				producer.Publish(data.Topic, data.Data, 1)
+			if len(b.FollowersRemote) > 1 {
+				for _, member := range b.FollowersRemote {
+					fmt.Println("同步到节点:", member)
+					// 此处应该过滤已死亡的节点，否则会hold住整个程序，导致无法正常运行
+					host := strings.Split(member, ":")[0]
+					port, _ := strconv.Atoi(strings.Split(member, ":")[1])
+					producer := client.NewProducer(&client.Option{
+						Protocol: "tcp",
+						Host:     host,
+						Port:     port,
+						Timeout:  3,
+					})
+					producer.Publish(data.Topic, data.Data, 1)
+				}
 			}
 		}
 	}

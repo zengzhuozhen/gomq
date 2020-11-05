@@ -29,7 +29,6 @@ func NewPublishPacket(topic string, message common.Message, isFirst bool, QoS in
 		identityLen = 2	// 占位
 	}
 	payLoad := message.Pack()
-	fmt.Println(payLoad)
 	return PublishPacket{
 		FixedHeader: FixedHeader{
 			TypeAndReserved: byte1,
