@@ -47,7 +47,7 @@ func (l *Listener) Start(producer *ProducerReceiver, consumer *ConsumerReceiver)
 func (l *Listener) holdConn(conn net.Conn, producerRc *ProducerReceiver, consumerRc *ConsumerReceiver) {
 	// 如果没有可读数据，也就是读 buffer 为空，则阻塞
 	ctx, cancel := context.WithCancel(context.Background())
-	_ = conn.SetDeadline(time.Now().Add(1000 * time.Second))
+	_ = conn.SetDeadline(time.Now().Add(10 * time.Second))
 	for {
 		packet, err := ReadPacket(conn)
 		if err != nil {

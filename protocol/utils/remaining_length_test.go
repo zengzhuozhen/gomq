@@ -17,7 +17,7 @@ var tests = []struct {
 func TestRemainingLengthAlgorithm(t *testing.T) {
 	for i, tt := range tests {
 		s := EncodeRemainingLengthAlg(tt.in)
-		if byte(s) != tt.out {
+		if BytesToInt(s) != tt.out {
 			t.Errorf("%d. %q => %q, wanted: %q", i, tt.in, s, tt.out)
 		}
 	}

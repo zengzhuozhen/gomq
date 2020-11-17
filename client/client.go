@@ -15,11 +15,31 @@ type Client interface {
 	Connect() error
 }
 
+type Option struct {
+	Protocol string
+	Host     string
+	Port     int
+	Timeout  int // timeout sec
+}
+
+
 type client struct {
 	options      *Option
 	optionsMu    sync.Mutex
 	conn         net.Conn
 	IdentityPool map[int]bool
+}
+
+func NewClient(opt *Option) Client {
+	identityPool := make(map[int]bool)
+	for i := 1; i <= math.MaxUint16; i++ { // 非零的16位报文标识符
+		identityPool[i] = true
+	}
+	return &client{
+		options:      opt,
+		optionsMu:    sync.Mutex{},
+		IdentityPool: identityPool,
+	}
 }
 
 func (c *client) Connect() error {
@@ -51,16 +71,5 @@ func (c *client) Connect() error {
 	}
 	fmt.Println("接收返回报文 connectAck, return code:", connAckPacket.ConnectReturnCode)
 
-	c.IdentityPool = make(map[int]bool)
-	for i := 1; i <= math.MaxUint16; i++ { // 非零的16位报文标识符
-		c.IdentityPool[i] = true
-	}
 	return nil
-}
-
-type Option struct {
-	Protocol string
-	Host     string
-	Port     int
-	Timeout  int // timeout sec
 }

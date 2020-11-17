@@ -6,7 +6,6 @@ import (
 	"gomq/protocol"
 	"gomq/protocol/packet"
 	"log"
-	"sync"
 )
 
 type IProducer interface {
@@ -21,10 +20,8 @@ type Producer struct {
 }
 
 func NewProducer(opts *Option) IProducer {
-	return &Producer{client: &client{
-		options:      opts,
-		optionsMu:    sync.Mutex{},
-	}}
+	client := NewClient(opts).(*client)
+	return &Producer{client:client}
 }
 
 func (p *Producer) Publish(topic string, mess common.Message, QoS int) {
@@ -39,7 +36,6 @@ func (p *Producer) Publish(topic string, mess common.Message, QoS int) {
 		identity = p.GetAvailableIdentity()
 	}
 	publishPacket := packet.NewPublishPacket(topic, mess, true, QoS, 0, identity)
-	//_, err = conn.Write(utils.StructToBytes(publishPacket))
 	err = publishPacket.Write(p.client.conn)
 	if err != nil {
 		log.Fatal(err.Error())

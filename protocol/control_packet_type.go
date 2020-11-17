@@ -16,6 +16,8 @@ const (
 	PINGREQ
 	PINGRESP
 	DISCONNECT
+
+
 )
 
 // QoS

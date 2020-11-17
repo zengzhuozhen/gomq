@@ -1,6 +1,7 @@
 package client
 
 import (
+	"fmt"
 	"testing"
 )
 
@@ -8,7 +9,10 @@ func TestConsumer_Subscribe_Topic_A(t *testing.T) {
 	opts := defaultOpts()
 	consumer := NewConsumer(opts)
 	topicList := []string{"A"}
-	consumer.Subscribe(topicList)
+	retChan := consumer.Subscribe(topicList)
+	for msg := range retChan {
+		fmt.Println(msg)
+	}
 }
 
 func TestConsumer_Subscribe_Topic_B(t *testing.T) {
@@ -16,7 +20,10 @@ func TestConsumer_Subscribe_Topic_B(t *testing.T) {
 
 	consumer := NewConsumer(opts)
 	topicList := []string{"B"}
-	consumer.Subscribe(topicList)
+	retChan := consumer.Subscribe(topicList)
+	for msg := range retChan {
+		fmt.Println(msg)
+	}
 }
 
 func TestConsumer_Subscribe_Topic_C(t *testing.T) {
@@ -24,14 +31,20 @@ func TestConsumer_Subscribe_Topic_C(t *testing.T) {
 
 	consumer := NewConsumer(opts)
 	topicList := []string{"C"}
-	consumer.Subscribe(topicList)
+	retChan := consumer.Subscribe(topicList)
+	for msg := range retChan {
+		fmt.Println(msg)
+	}
 }
 
 func TestConsumer_Subscribe_Topic_A_B_C(t *testing.T) {
 	opts := defaultOpts()
 	consumer := NewConsumer(opts)
 	topicList := []string{"A", "B", "C"}
-	consumer.Subscribe(topicList)
+	retChan := consumer.Subscribe(topicList)
+	for msg := range retChan {
+		fmt.Println(msg)
+	}
 }
 
 func defaultOpts() *Option {

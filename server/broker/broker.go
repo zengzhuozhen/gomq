@@ -26,7 +26,7 @@ const FollowerPath = "/services/mq/broker_follower/"
 
 const (
 	Leader = iota
-	Follower
+	Member
 )
 
 const (
@@ -49,6 +49,9 @@ func NewOption(identity int, endPoint string, etcdUrls []string, partition int) 
 		partitionNum: partition,
 	}
 }
+
+type LeaderBroker Broker
+type MemberBroker Broker
 
 type Broker struct {
 	brokerId         string
@@ -85,16 +88,17 @@ func NewBroker(opt *option) *Broker {
 }
 
 func (b *Broker) Run() {
-	b.wg = errgroup.Group{}
-
-	b.wg.Go(b.startPersistent)
-	b.wg.Go(b.startConnLoop)
-	b.wg.Go(b.startTcpServer)
-	b.wg.Go(b.startMemberSync)
-	b.wg.Go(b.startPprof)
-	b.wg.Go(b.handleSignal)
-
-	_ = b.wg.Wait()
+	if b.opt.identity == Member {
+		b.runMember()
+	} else {
+		b.wg = errgroup.Group{}
+		b.wg.Go(b.startPersistent)
+		b.wg.Go(b.startConnLoop)
+		b.wg.Go(b.startTcpServer)
+		b.wg.Go(b.startMemberSync)
+		b.wg.Go(b.handleSignal)
+		_ = b.wg.Wait()
+	}
 }
 
 func (b *Broker) startPersistent() error {
@@ -175,7 +179,8 @@ func (b *Broker) register() {
 		b.opt.identity = Leader
 		_, _ = kv.Put(ctx, LeaderId, b.brokerId)
 	} else {
-		b.opt.identity = Follower
+		// 需要判断是否为活跃节点，否则将替换为当前节点为leader,并修改etcd中的leader path
+		b.opt.identity = Member
 	}
 	// 获取leader ID
 	resp, _ = kv.Get(ctx, LeaderId)
@@ -254,4 +259,20 @@ func (b *Broker) gracefulStop() error {
 		_, err = kv.Delete(context.TODO(), fmt.Sprintf("%s/%s", FollowerPath, b.brokerId))
 	}
 	return err
+}
+
+func (b *Broker) runMember() {
+	host := strings.Split(b.LeaderAddress, ":")[0]
+	port, _ := strconv.Atoi(strings.Split(b.LeaderAddress, ":")[1])
+	member := client.NewMember(&client.Option{
+		Protocol: "tcp",
+		Host:     host,
+		Port:     port,
+		Timeout:  3,
+	})
+	msgChan := make(chan *common.Message,1000)
+	go member.StartConsume(msgChan)
+	//for msg := range msgChan{
+	//
+	//}
 }
