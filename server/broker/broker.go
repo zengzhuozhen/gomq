@@ -76,7 +76,7 @@ func NewBroker(opt *option) *Broker {
 	broker.queue = common.NewQueue()
 	broker.ConnectPool = service.NewPool()
 	broker.ProducerReceiver = service.NewProducerReceiver(broker.queue)
-	broker.ConsumerReceiver = service.NewConsumerReceiver(make(map[string][]common.MsgChan, 1024), broker.ConnectPool)
+	broker.ConsumerReceiver = service.NewConsumerReceiver(make(map[string][]common.MsgUnitChan, 1024), broker.ConnectPool)
 	broker.FollowersRemote = make(map[string]string)
 	broker.Partition = make(map[string]int)
 
@@ -229,7 +229,8 @@ func (b *Broker) startMemberSync() error {
 						Port:     port,
 						Timeout:  3,
 					})
-					producer.Publish(data.Topic, data.Data, 1)
+
+					producer.Publish(data, 1)
 				}
 			}
 		}
@@ -270,9 +271,9 @@ func (b *Broker) runMember() {
 		Port:     port,
 		Timeout:  3,
 	})
-	msgChan := make(chan *common.Message,1000)
-	go member.StartConsume(msgChan)
-	//for msg := range msgChan{
-	//
-	//}
+	msgUnitChan := make(chan *common.MessageUnit,1000)
+	go member.StartConsume(msgUnitChan)
+	for msgUnit := range msgUnitChan {
+		b.queue.Push(*msgUnit,true,false,)
+	}
 }

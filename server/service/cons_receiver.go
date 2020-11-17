@@ -11,11 +11,11 @@ import (
 )
 
 type ConsumerReceiver struct {
-	ChanAssemble map[string][]common.MsgChan
+	ChanAssemble map[string][]common.MsgUnitChan
 	pool         *Pool
 }
 
-func NewConsumerReceiver(chanAssemble map[string][]common.MsgChan, pool *Pool) *ConsumerReceiver {
+func NewConsumerReceiver(chanAssemble map[string][]common.MsgUnitChan, pool *Pool) *ConsumerReceiver {
 	return &ConsumerReceiver{ChanAssemble: chanAssemble, pool: pool}
 }
 
@@ -56,19 +56,19 @@ func (r *ConsumerReceiver) ConsumeAndResponse(ctx context.Context, conn net.Conn
 	if err != nil {
 		fmt.Println("返回subAck失败", err)
 	}
-	for k, topic := range TopicList {
-		r.ChanAssemble[connUid] = append(r.ChanAssemble[connUid],  make(common.MsgChan))
-		go r.listenMsgChan(ctx,k, topic, connUid, conn)
+	for k := range TopicList {
+		r.ChanAssemble[connUid] = append(r.ChanAssemble[connUid],  make(common.MsgUnitChan))
+		go r.listenMsgChan(ctx, k, connUid, conn)
 	}
 }
 
-func (r *ConsumerReceiver) listenMsgChan(ctx context.Context,k int, topic, connUid string, conn net.Conn) {
+func (r *ConsumerReceiver) listenMsgChan(ctx context.Context, k int, connUid string, conn net.Conn) {
 	for {
 		select {
 		case msg := <-r.ChanAssemble[connUid][k]:
 			// 防止多个管道同时竞争所有消息的问题,采用客户端连接池进行逻辑隔离解决
 			messagePacket := msg.Pack()
-			fmt.Printf("准备推送消息:{Topic:'%s'} {Body:'%s'}",topic, msg.Body)
+			fmt.Printf("准备推送消息:{Topic:'%s'} {Body:'%s'}",msg.Topic,msg.Data.Body)
 			if _, err := conn.Write(messagePacket); err != nil {
 				fmt.Println(err)
 			}

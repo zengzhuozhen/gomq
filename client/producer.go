@@ -9,7 +9,7 @@ import (
 )
 
 type IProducer interface {
-	Publish(topic string, mess common.Message, QoS int)
+	Publish(mess common.MessageUnit, QoS int)
 	WaitAck()
 	WaitRec()
 	GetAvailableIdentity() uint16
@@ -21,10 +21,10 @@ type Producer struct {
 
 func NewProducer(opts *Option) IProducer {
 	client := NewClient(opts).(*client)
-	return &Producer{client:client}
+	return &Producer{client: client}
 }
 
-func (p *Producer) Publish(topic string, mess common.Message, QoS int) {
+func (p *Producer) Publish(messageUnit common.MessageUnit, QoS int) {
 	err := p.client.Connect()
 	if err != nil {
 		panic("连接服务端失败")
@@ -35,7 +35,7 @@ func (p *Producer) Publish(topic string, mess common.Message, QoS int) {
 	if QoS != protocol.AtMostOnce {
 		identity = p.GetAvailableIdentity()
 	}
-	publishPacket := packet.NewPublishPacket(topic, mess, true, QoS, 0, identity)
+	publishPacket := packet.NewPublishPacket(messageUnit.Topic, messageUnit.Data, true, QoS, 0, identity)
 	err = publishPacket.Write(p.client.conn)
 	if err != nil {
 		log.Fatal(err.Error())

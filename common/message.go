@@ -18,7 +18,6 @@ func (m *Message) UnPack(b []byte) *Message {
 	return  utils.BytesToStruct(b, &Message{}).(*Message)
 }
 
-type MsgChan chan Message
 
 
 // 消息单元
@@ -26,6 +25,17 @@ type MessageUnit struct {
 	Topic string
 	Data  Message
 }
+
+func (m *MessageUnit) Pack() []byte {
+	return utils.StructToBytes(m)
+}
+
+func (m *MessageUnit) UnPack(b []byte) *MessageUnit {
+	return  utils.BytesToStruct(b, &MessageUnit{}).(*MessageUnit)
+}
+
+type MsgUnitChan chan MessageUnit
+
 
 func NewMessageUnit(topic string,data Message) MessageUnit {
 	return MessageUnit{

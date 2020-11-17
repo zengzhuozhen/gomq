@@ -45,8 +45,9 @@ func (p *ProducerReceiver) ProduceAndResponse(conn net.Conn ,publishPacket *prot
 	}
 	message := new(common.Message)
 	message = message.UnPack(publishPacket.Payload)
+	messageUnit := common.NewMessageUnit(publishPacket.TopicName,*message)
 	fmt.Printf("主题 %s 生产了: %s ", publishPacket.TopicName,message.MsgKey )
-	p.queue.Push(publishPacket.TopicName, *message)
+	p.queue.Push(messageUnit,true,true)
 
 	fmt.Println("记录入队数据", message.MsgKey)
 

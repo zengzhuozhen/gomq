@@ -9,9 +9,9 @@ import (
 )
 
 type IConsumer interface {
-	Subscribe(topic []string) <-chan *common.Message
+	Subscribe(topic []string) <-chan *common.MessageUnit
 	Heart(duration time.Duration)
-	ReadPacket(msgChan chan<- *common.Message)
+	ReadPacket(msgChan chan<- *common.MessageUnit)
 	UnSubscribe(topic []string, identifier uint16)
 	DisConnect()
 }
@@ -25,7 +25,7 @@ func NewConsumer(opts *Option) IConsumer {
 	return &Consumer{client: client}
 }
 
-func (c *Consumer) Subscribe(topic []string) <-chan *common.Message {
+func (c *Consumer) Subscribe(topic []string) <-chan *common.MessageUnit {
 	err := c.client.Connect()
 	fmt.Println(c.client.conn.LocalAddr().String())
 	if err != nil {
@@ -39,10 +39,10 @@ func (c *Consumer) Subscribe(topic []string) <-chan *common.Message {
 	}
 	fmt.Println("发送subscribe")
 
-	MsgChan := make(chan *common.Message, 1000)
+	MsgUnitChan := make(chan *common.MessageUnit, 1000)
 	go c.Heart(3 * time.Second)
-	go c.ReadPacket(MsgChan)
-	return MsgChan
+	go c.ReadPacket(MsgUnitChan)
+	return MsgUnitChan
 }
 
 func (c *Consumer) Heart(duration time.Duration) {
@@ -57,7 +57,7 @@ func (c *Consumer) Heart(duration time.Duration) {
 	}
 }
 
-func (c *Consumer) ReadPacket(msgChan chan<- *common.Message) {
+func (c *Consumer) ReadPacket(msgUnitChan chan<- *common.MessageUnit) {
 	for {
 		// 读取数据包
 		var fh protocolPacket.FixedHeader
@@ -85,14 +85,13 @@ func (c *Consumer) ReadPacket(msgChan chan<- *common.Message) {
 			fmt.Println("收到服务端心跳回应")
 		default:
 			// 普通消息
-
 			messByte := make([]byte, 4096) // todo fix:这里可能由于粘包导致超出slice长度
 			n, _ := c.client.conn.Read(messByte)
 			head := fh.Pack()
 			data := append(head.Bytes(), messByte[:n]...)
-			message := new(common.Message)
+			message := new(common.MessageUnit)
 			message = message.UnPack(data)
-			msgChan <- message
+			msgUnitChan <- message
 		}
 	}
 }

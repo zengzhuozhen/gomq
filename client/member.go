@@ -12,7 +12,7 @@ func NewMember(opts *Option) *Member {
 	return &Member{client: client}
 }
 
-func (m *Member) StartConsume(msgChan <-chan *common.Message) {
+func (m *Member) StartConsume(msgChan <-chan *common.MessageUnit) {
 	consumer := NewConsumer(&Option{
 		Protocol: m.opts.Protocol,
 		Host:     m.opts.Host,
