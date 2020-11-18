@@ -21,13 +21,13 @@ type Listener struct {
 	*MemberReceiver
 }
 
-func NewListener(protocol, address string, PReceiver *ProducerReceiver, CReceiver *ConsumerReceiver, MReceiver *MemberReceiver) *Listener {
+func NewListener(protocol, address string, PR *ProducerReceiver, CR *ConsumerReceiver, MR *MemberReceiver) *Listener {
 	return &Listener{
 		protocol:         protocol,
 		address:          address,
-		ProducerReceiver: PReceiver,
-		ConsumerReceiver: CReceiver,
-		MemberReceiver:   MReceiver,
+		ProducerReceiver: PR,
+		ConsumerReceiver: CR,
+		MemberReceiver:   MR,
 	}
 }
 

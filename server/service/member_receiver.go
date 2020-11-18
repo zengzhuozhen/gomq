@@ -7,8 +7,11 @@ import (
 )
 
 type MemberReceiver struct {
-	MemberConnPool map[string]net.Conn
-	MemberSyncMap  map[string]uint64
+	MemberConnPool map[string]net.Conn // Member连接
+	MemberSyncMap  map[string]uint64   // Member最新同步量
+
+	LowWaterPlane  uint64 // 低水位
+	HighWaterPlane uint64 // 高水位
 }
 
 func NewMemberReceiver() *MemberReceiver {

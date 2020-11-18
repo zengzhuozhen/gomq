@@ -50,9 +50,6 @@ func NewOption(identity int, endPoint string, etcdUrls []string, partition int) 
 	}
 }
 
-type LeaderBroker Broker
-type MemberBroker Broker
-
 type Broker struct {
 	brokerId         string
 	opt              *option
@@ -64,7 +61,6 @@ type Broker struct {
 	LeaderId         string
 	LeaderAddress    string
 	FollowersRemote  map[string]string // clientId : ipAddress
-	Partition        map[string]int    // clientId : PartitionNo
 	RegisterCenter   *clientv3.Client
 }
 
@@ -76,7 +72,6 @@ func NewBroker(opt *option) *Broker {
 	broker.ConsumerReceiver = service.NewConsumerReceiver(make(map[string][]common.MsgUnitChan, 1024))
 	broker.MemberReceiver = service.NewMemberReceiver()
 	broker.FollowersRemote = make(map[string]string)
-	broker.Partition = make(map[string]int)
 
 	broker.register()
 
@@ -104,7 +99,7 @@ func (b *Broker) startPersistent() error {
 	b.persistent.Load()
 	for {
 		select {
-		case data := <-b.queue.PersistentChan:
+		case data := <-b.ProducerReceiver.Queue.PersistentChan:
 			fmt.Println("接收到持久化消息单元")
 			b.persistent.Append(data)
 			if b.persistent.Cap()%100 == 0 { // 每100个元素做一次快照
@@ -232,7 +227,7 @@ func (b *Broker) runMember() {
 		Timeout:  3,
 	})
 	b.wg = errgroup.Group{}
-	b.wg.Go(func() error { return member.StartConsume(b.queue) })
+	fmt.Println(member)
 	b.wg.Go(b.startPersistent)
 	b.wg.Go(b.handleSignal)
 	b.wg.Wait()
