@@ -16,16 +16,22 @@ import (
 type Listener struct {
 	protocol string
 	address  string
+	*ProducerReceiver
+	*ConsumerReceiver
+	*MemberReceiver
 }
 
-func NewListener(protocol, address string) *Listener {
+func NewListener(protocol, address string, PReceiver *ProducerReceiver, CReceiver *ConsumerReceiver, MReceiver *MemberReceiver) *Listener {
 	return &Listener{
-		protocol: protocol,
-		address:  address,
+		protocol:         protocol,
+		address:          address,
+		ProducerReceiver: PReceiver,
+		ConsumerReceiver: CReceiver,
+		MemberReceiver:   MReceiver,
 	}
 }
 
-func (l *Listener) Start(producer *ProducerReceiver, consumer *ConsumerReceiver) {
+func (l *Listener) Start() {
 	listen, err := net.Listen(l.protocol, l.address)
 	if err != nil {
 		log.Fatal(err.Error())
@@ -39,12 +45,12 @@ func (l *Listener) Start(producer *ProducerReceiver, consumer *ConsumerReceiver)
 			return
 		}
 		if handleConnectProtocol(conn) == true {
-			go l.holdConn(conn, producer, consumer)
+			go l.holdConn(conn)
 		}
 	}
 }
 
-func (l *Listener) holdConn(conn net.Conn, producerRc *ProducerReceiver, consumerRc *ConsumerReceiver) {
+func (l *Listener) holdConn(conn net.Conn) {
 	// 如果没有可读数据，也就是读 buffer 为空，则阻塞
 	ctx, cancel := context.WithCancel(context.Background())
 	_ = conn.SetDeadline(time.Now().Add(10 * time.Second))
@@ -59,13 +65,18 @@ func (l *Listener) holdConn(conn net.Conn, producerRc *ProducerReceiver, consume
 
 		switch packet.(type) {
 		case *protocolPacket.PublishPacket:
-			producerRc.ProduceAndResponse(conn, packet.(*protocolPacket.PublishPacket))
+			l.ProducerReceiver.ProduceAndResponse(conn, packet.(*protocolPacket.PublishPacket))
 		case *protocolPacket.SubscribePacket:
-			consumerRc.ConsumeAndResponse(ctx, conn, packet.(*protocolPacket.SubscribePacket))
+			l.ConsumerReceiver.ConsumeAndResponse(ctx, conn, packet.(*protocolPacket.SubscribePacket))
 		case *protocolPacket.UnSubscribePacket:
-			consumerRc.CloseConsumer(conn, packet.(*protocolPacket.UnSubscribePacket))
+			l.ConsumerReceiver.CloseConsumer(conn, packet.(*protocolPacket.UnSubscribePacket))
 		case *protocolPacket.PingReqPacket:
-			consumerRc.Pong(conn)
+			l.ConsumerReceiver.Pong(conn)
+		case *protocolPacket.SyncReqPacket:
+			// todo 每一个member 进来都保存其conn到连接池，每次Leader写入消息都同步到Member,Member定时发送同步量信号给Leader，Leader根据同步情况调节水位
+			l.MemberReceiver.RegisterSyncAndResponse(conn, packet.(*protocolPacket.SyncReqPacket))
+		case *protocolPacket.SyncOffsetPacket:
+			l.MemberReceiver.SyncOffset(conn, packet.(*protocolPacket.SyncOffsetPacket))
 		case *protocolPacket.DisConnectPacket:
 			cancel()
 			conn.Close()
@@ -141,24 +152,36 @@ func ReadPacket(r io.Reader) (protocolPacket.ControlPacket, error) {
 	var fh protocolPacket.FixedHeader
 	if err := fh.Read(r); err != nil {
 		fmt.Errorf("读取包头失败", err)
-		return nil,err
+		return nil, err
 	}
 
 	var packet protocolPacket.ControlPacket
-
+	var err error
 	switch protocolPacket.DecodePacketType(fh.TypeAndReserved) {
 	case byte(protocol.PUBLISH):
 		packet = &protocolPacket.PublishPacket{}
-		packet.Read(r, fh)
+		err = packet.Read(r, fh)
 	case byte(protocol.SUBSCRIBE):
 		packet = &protocolPacket.SubscribePacket{}
-		packet.ReadHeadOnly(r, fh)
+		err = packet.ReadHeadOnly(r, fh) // 只读头部，剩下的具体业务里面处理
 	case byte(protocol.UNSUBSCRIBE):
 		packet = &protocolPacket.UnSubscribePacket{}
-		packet.ReadHeadOnly(r, fh)
+		err = packet.ReadHeadOnly(r, fh) // 只读头部，剩下的具体业务里面处理
 	case byte(protocol.PINGREQ):
 		packet = &protocolPacket.PingReqPacket{}
-		packet.Read(r, fh)
+		err = packet.Read(r, fh)
+	case byte(protocol.DISCONNECT):
+		packet = &protocolPacket.DisConnectPacket{}
+		err = packet.Read(r, fh)
+	case byte(protocol.SYNCREQ):
+		packet = &protocolPacket.SyncReqPacket{}
+		err = packet.Read(r, fh)
+	case byte(protocol.SYNCACK):
+		packet = &protocolPacket.SyncAckPacket{}
+		err = packet.Read(r, fh)
+	case byte(protocol.SYNCOFFSET):
+		packet = &protocolPacket.SyncOffsetPacket{}
+		err = packet.Read(r, fh)
 	}
-	return packet, nil
+	return packet, err
 }

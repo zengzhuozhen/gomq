@@ -13,6 +13,7 @@ import (
 
 type Client interface {
 	Connect() error
+	GetAvailableIdentity() uint16
 }
 
 type Option struct {
@@ -72,4 +73,14 @@ func (c *client) Connect() error {
 	fmt.Println("接收返回报文 connectAck, return code:", connAckPacket.ConnectReturnCode)
 
 	return nil
+}
+
+func (c *client) GetAvailableIdentity() uint16 {
+	for k, v := range c.IdentityPool {
+		if v == true {
+			c.IdentityPool[k] = false
+			return uint16(k)
+		}
+	}
+	return 0
 }

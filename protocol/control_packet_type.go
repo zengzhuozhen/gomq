@@ -2,6 +2,7 @@ package protocol
 
 const (
 	Reserved int = iota
+	// 标准MQTT标识
 	CONNECT
 	CONNACK
 	PUBLISH
@@ -16,7 +17,10 @@ const (
 	PINGREQ
 	PINGRESP
 	DISCONNECT
-
+	// 自定义标识
+	SYNCREQ
+	SYNCACK
+	SYNCOFFSET
 
 )
 

@@ -12,7 +12,6 @@ type IProducer interface {
 	Publish(mess common.MessageUnit, QoS int)
 	WaitAck()
 	WaitRec()
-	GetAvailableIdentity() uint16
 }
 
 type Producer struct {
@@ -33,7 +32,7 @@ func (p *Producer) Publish(messageUnit common.MessageUnit, QoS int) {
 	// todo retain暂时设置为0,后期优化
 	var identity uint16
 	if QoS != protocol.AtMostOnce {
-		identity = p.GetAvailableIdentity()
+		identity = p.client.GetAvailableIdentity()
 	}
 	publishPacket := packet.NewPublishPacket(messageUnit.Topic, messageUnit.Data, true, QoS, 0, identity)
 	err = publishPacket.Write(p.client.conn)
@@ -94,12 +93,4 @@ func (p *Producer) WaitRec() {
 	return
 }
 
-func (p *Producer) GetAvailableIdentity() uint16 {
-	for k, v := range p.client.IdentityPool {
-		if v == true {
-			p.client.IdentityPool[k] = false
-			return uint16(k)
-		}
-	}
-	return 0
-}
+

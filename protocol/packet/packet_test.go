@@ -2,8 +2,6 @@ package packet
 
 import (
 	"gomq/protocol"
-	"gomq/protocol/utils"
-	"reflect"
 	"testing"
 )
 
@@ -81,14 +79,4 @@ func TestDecodePacketType(t *testing.T) {
 	}
 }
 
-func TestNewConnectPack(t *testing.T) {
-	payLoad := new(ConnectPayLoad)
-	payLoad.Data = nil
-	connPacket := NewConnectPack(*payLoad, 30)
-	data := utils.StructToBytes(connPacket)
-	packet2 := utils.BytesToStruct(data, &ConnectPacket{}).(*ConnectPacket)
-	if ! reflect.DeepEqual(&connPacket, packet2) {
-		t.Errorf("pakcet not equal when pass encode and decode:"+
-			" %+v, %+v", &connPacket, packet2)
-	}
-}
+

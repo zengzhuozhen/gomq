@@ -57,10 +57,9 @@ type Broker struct {
 	brokerId         string
 	opt              *option
 	wg               errgroup.Group
-	queue            *common.Queue
 	ProducerReceiver *service.ProducerReceiver
 	ConsumerReceiver *service.ConsumerReceiver
-	ConnectPool      *service.Pool
+	MemberReceiver   *service.MemberReceiver
 	persistent       store.Store
 	LeaderId         string
 	LeaderAddress    string
@@ -73,10 +72,9 @@ func NewBroker(opt *option) *Broker {
 	broker := new(Broker)
 	broker.brokerId = uuid.New().String()
 	broker.opt = opt
-	broker.queue = common.NewQueue()
-	broker.ConnectPool = service.NewPool()
-	broker.ProducerReceiver = service.NewProducerReceiver(broker.queue)
-	broker.ConsumerReceiver = service.NewConsumerReceiver(make(map[string][]common.MsgUnitChan, 1024), broker.ConnectPool)
+	broker.ProducerReceiver = service.NewProducerReceiver()
+	broker.ConsumerReceiver = service.NewConsumerReceiver(make(map[string][]common.MsgUnitChan, 1024))
+	broker.MemberReceiver = service.NewMemberReceiver()
 	broker.FollowersRemote = make(map[string]string)
 	broker.Partition = make(map[string]int)
 
@@ -119,17 +117,17 @@ func (b *Broker) startPersistent() error {
 func (b *Broker) startConnLoop() error {
 	fmt.Println("开启监听连接循环")
 	for {
-		activeConn := b.ConnectPool.ForeachActiveConn()
+		activeConn := b.ConsumerReceiver.Pool.ForeachActiveConn()
 		if len(activeConn) == 0 {
 			time.Sleep(100 * time.Millisecond)
 			continue
 		}
 		for _, uid := range activeConn {
-			topicList := b.ConnectPool.Topic[uid]
+			topicList := b.ConsumerReceiver.Pool.Topic[uid]
 			for k, topic := range topicList {
-				position := b.ConnectPool.Position[uid][k]
-				if msg, err := b.queue.Pop(topic, position); err == nil {
-					b.ConnectPool.UpdatePosition(uid, topic)
+				position := b.ConsumerReceiver.Pool.Position[uid][k]
+				if msg, err := b.ProducerReceiver.Queue.Pop(topic, position); err == nil {
+					b.ConsumerReceiver.Pool.UpdatePosition(uid, topic)
 					b.ConsumerReceiver.ChanAssemble[uid][k] <- msg
 				} else {
 					time.Sleep(100 * time.Millisecond)
@@ -141,8 +139,8 @@ func (b *Broker) startConnLoop() error {
 
 func (b *Broker) startTcpServer() error {
 	fmt.Println("开启tcp server...")
-	listener := service.NewListener("tcp", b.opt.endPoint)
-	listener.Start(b.ProducerReceiver, b.ConsumerReceiver)
+	listener := service.NewListener("tcp", b.opt.endPoint, b.ProducerReceiver, b.ConsumerReceiver, b.MemberReceiver)
+	listener.Start()
 	return nil
 }
 
@@ -190,7 +188,6 @@ func (b *Broker) register() {
 		b.FollowersRemote[clientId] = string(i.Value)
 	}
 }
-
 
 func (b *Broker) handleSignal() error {
 	sigChan := make(chan os.Signal)
