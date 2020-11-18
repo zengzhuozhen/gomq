@@ -6,24 +6,22 @@ import (
 )
 
 type Queue struct {
-	local           map[string][]MessageUnit // local[Topic][Message_1,Message_2]
-	offset          map[string]int64         // offset[Topic]1024
-	mu              *sync.RWMutex
-	PersistentChan  chan MessageUnit
-	MembersSyncChan chan MessageUnit
+	local          map[string][]MessageUnit // local[Topic][Message_1,Message_2]
+	offset         map[string]int64         // offset[Topic]1024
+	mu             *sync.RWMutex
+	PersistentChan chan MessageUnit
 }
 
 func NewQueue() *Queue {
 	return &Queue{
-		local:           make(map[string][]MessageUnit, 1024),
-		offset:          make(map[string]int64),
-		mu:              new(sync.RWMutex),
-		PersistentChan:  make(chan MessageUnit),
-		MembersSyncChan: make(chan MessageUnit),
+		local:          make(map[string][]MessageUnit, 1024),
+		offset:         make(map[string]int64),
+		mu:             new(sync.RWMutex),
+		PersistentChan: make(chan MessageUnit),
 	}
 }
 
-func (q *Queue) Push(messageUnit MessageUnit, needPersist, needSync bool) {
+func (q *Queue) Push(messageUnit MessageUnit) {
 	q.mu.RLock()
 	if len(q.local[messageUnit.Topic]) >= 1024 { // 超过 1024个元素 清空一下
 		q.offset[messageUnit.Topic] += int64(len(q.local[messageUnit.Topic]))
@@ -31,12 +29,8 @@ func (q *Queue) Push(messageUnit MessageUnit, needPersist, needSync bool) {
 	}
 	q.local[messageUnit.Topic] = append(q.local[messageUnit.Topic], messageUnit)
 	q.mu.RUnlock()
-	if needPersist {
-		q.PersistentChan <- messageUnit
-	}
-	if needSync {
-		q.MembersSyncChan <- messageUnit
-	}
+	q.PersistentChan <- messageUnit
+
 }
 
 func (q *Queue) Pop(topic string, position int64) (message MessageUnit, err error) {

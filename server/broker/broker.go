@@ -65,7 +65,7 @@ type Broker struct {
 	LeaderId         string
 	LeaderAddress    string
 	FollowersRemote  map[string]string // clientId : ipAddress
-	Partition        map[string]int    // clientId : Partition-nodeId
+	Partition        map[string]int    // clientId : PartitionNo
 	RegisterCenter   *clientv3.Client
 }
 
@@ -81,7 +81,6 @@ func NewBroker(opt *option) *Broker {
 	broker.Partition = make(map[string]int)
 
 	broker.register()
-	broker.distributePartition()
 
 	fmt.Println("初始化broker成功，ID:" + broker.brokerId)
 	return broker
@@ -95,7 +94,6 @@ func (b *Broker) Run() {
 		b.wg.Go(b.startPersistent)
 		b.wg.Go(b.startConnLoop)
 		b.wg.Go(b.startTcpServer)
-		b.wg.Go(b.startMemberSync)
 		b.wg.Go(b.handleSignal)
 		_ = b.wg.Wait()
 	}
@@ -193,49 +191,6 @@ func (b *Broker) register() {
 	}
 }
 
-func (b *Broker) distributePartition() {
-	fmt.Println("开始对各个节点分发partition")
-	partitionNum := b.opt.partitionNum
-	nodeId := 1
-	allNode := b.FollowersRemote
-	allNode[b.LeaderId] = b.LeaderAddress
-	for partitionNum > 0 {
-		for clientId, _ := range allNode {
-			b.Partition[clientId] = nodeId
-			nodeId++
-			partitionNum--
-		}
-	}
-	fmt.Println("目前分区情况：", b.Partition)
-
-}
-
-func (b *Broker) startMemberSync() error {
-	fmt.Println("开启集群同步")
-
-	for {
-		select {
-		case data := <-b.queue.MembersSyncChan:
-			fmt.Println("接收到同步信息")
-			if len(b.FollowersRemote) > 1 {
-				for _, member := range b.FollowersRemote {
-					fmt.Println("同步到节点:", member)
-					// 此处应该过滤已死亡的节点，否则会hold住整个程序，导致无法正常运行
-					host := strings.Split(member, ":")[0]
-					port, _ := strconv.Atoi(strings.Split(member, ":")[1])
-					producer := client.NewProducer(&client.Option{
-						Protocol: "tcp",
-						Host:     host,
-						Port:     port,
-						Timeout:  3,
-					})
-
-					producer.Publish(data, 1)
-				}
-			}
-		}
-	}
-}
 
 func (b *Broker) handleSignal() error {
 	sigChan := make(chan os.Signal)
@@ -263,6 +218,14 @@ func (b *Broker) gracefulStop() error {
 }
 
 func (b *Broker) runMember() {
+	// 将原先Leader推数据的方式改为Member主动拉数据
+	// Member启动后连接Leader，注册信息，并同步数据
+	// Member定时发送心跳，并告知同步情况
+	// todo
+	// Leader维持一个低水位，保证该水位之下的消息高可用，当低水位距离最新信息偏移太远时，Leader拒绝接收新的数据，通过Member同步来提高低水位线
+	// Leader维持一个高水位，保证该水位之下的消息在当前节点可用，要保证Leader数据可靠，需要每次写入信息后刷盘，默认情况下高水位线与当前最新消息偏移一致，需要提高
+	// 写入性能时，可以修改持久化策略，使高水位线在最新消息偏移之下
+
 	host := strings.Split(b.LeaderAddress, ":")[0]
 	port, _ := strconv.Atoi(strings.Split(b.LeaderAddress, ":")[1])
 	member := client.NewMember(&client.Option{
@@ -271,9 +234,9 @@ func (b *Broker) runMember() {
 		Port:     port,
 		Timeout:  3,
 	})
-	msgUnitChan := make(chan *common.MessageUnit,1000)
-	go member.StartConsume(msgUnitChan)
-	for msgUnit := range msgUnitChan {
-		b.queue.Push(*msgUnit,true,false,)
-	}
+	b.wg = errgroup.Group{}
+	b.wg.Go(func() error { return member.StartConsume(b.queue) })
+	b.wg.Go(b.startPersistent)
+	b.wg.Go(b.handleSignal)
+	b.wg.Wait()
 }

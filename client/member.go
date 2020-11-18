@@ -1,6 +1,8 @@
 package client
 
-import "gomq/common"
+import (
+	"gomq/common"
+)
 
 type Member struct {
 	opts   *Option
@@ -9,15 +11,20 @@ type Member struct {
 
 func NewMember(opts *Option) *Member {
 	client := NewClient(opts).(*client)
-	return &Member{client: client}
+	return &Member{client: client,opts:opts}
 }
 
-func (m *Member) StartConsume(msgChan <-chan *common.MessageUnit) {
+func (m *Member) StartConsume(queue *common.Queue) error{
 	consumer := NewConsumer(&Option{
 		Protocol: m.opts.Protocol,
 		Host:     m.opts.Host,
 		Port:     m.opts.Port,
 		Timeout:  m.opts.Timeout,
 	})
-	msgChan = consumer.Subscribe([]string{"*"})
+	for msgUnit := range consumer.Subscribe([]string{"*"}) {
+		queue.Push(*msgUnit)
+	}
+	return nil
 }
+
+
