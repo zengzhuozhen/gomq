@@ -26,7 +26,7 @@ const (
 	SYNCOFFSET
 )
 
-// QoS
+// QoS 服务质量等级
 const (
 	AtMostOnce = iota
 	AtLeastOnce
