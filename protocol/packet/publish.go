@@ -17,7 +17,7 @@ type PublishPacket struct {
 }
 
 func NewPublishPacket(topic string, message common.Message, isFirst bool, QoS int, Retain int, identity uint16) PublishPacket {
-	byte1 := EncodePacketType(byte(protocol.PUBLISH)) // MQTT控制报文类型 (3)
+	byte1 := utils.EncodePacketType(byte(protocol.PUBLISH)) // MQTT控制报文类型 (3)
 	if !isFirst && QoS == protocol.ExactOnce {
 		byte1 += 8 // 重发标志 DUP
 	}
@@ -62,7 +62,6 @@ func (p *PublishPacket) Read(r io.Reader, header FixedHeader) error {
 		if p.PacketIdentifier,err = utils.DecodeUint16(r);err!= nil{
 			return err
 		}
-		fmt.Println(p.PacketIdentifier)
 	} else {
 		payloadLength -= len(p.TopicName) + 2
 	}

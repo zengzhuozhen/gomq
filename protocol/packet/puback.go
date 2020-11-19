@@ -17,7 +17,7 @@ type PubAckPacket struct {
 func NewPubAckPacket(identity uint16) PubAckPacket {
 	return PubAckPacket{
 		FixedHeader: FixedHeader{
-			TypeAndReserved: EncodePacketType(byte(protocol.PUBACK)),
+			TypeAndReserved: utils.EncodePacketType(byte(protocol.PUBACK)),
 			RemainingLength: 2,
 		},
 		PacketIdentifier: identity,

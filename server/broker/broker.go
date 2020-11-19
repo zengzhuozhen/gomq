@@ -35,21 +35,20 @@ const (
 )
 
 type option struct {
-	identity     int
-	endPoint     string
-	etcdUrls     []string
-	partitionNum int
+	identity int
+	endPoint string
+	etcdUrls []string
 }
 
-func NewOption(identity int, endPoint string, etcdUrls []string, partition int) *option {
+func NewOption(identity int, endPoint string, etcdUrls []string) *option {
 	return &option{
-		identity:     identity,
-		endPoint:     endPoint,
-		etcdUrls:     etcdUrls,
-		partitionNum: partition,
+		identity: identity,
+		endPoint: endPoint,
+		etcdUrls: etcdUrls,
 	}
 }
 
+// todo Broker 之上在加一层Leader和Member
 type Broker struct {
 	brokerId         string
 	opt              *option
@@ -62,6 +61,7 @@ type Broker struct {
 	LeaderAddress    string
 	FollowersRemote  map[string]string // clientId : ipAddress
 	RegisterCenter   *clientv3.Client
+	memberClient     *client.Member // 作为Member启动时持有的客户端
 }
 
 func NewBroker(opt *option) *Broker {
@@ -98,13 +98,21 @@ func (b *Broker) startPersistent() error {
 	b.persistent.Open()
 	b.persistent.Load()
 	for {
-		select {
-		case data := <-b.ProducerReceiver.Queue.PersistentChan:
+		if b.opt.identity == Leader {
+			data := <-b.ProducerReceiver.Queue.PersistentChan
 			fmt.Println("接收到持久化消息单元")
 			b.persistent.Append(data)
 			if b.persistent.Cap()%100 == 0 { // 每100个元素做一次快照
 				b.persistent.SnapShot()
 			}
+		} else {
+			data := <-b.memberClient.PersistentChan
+			fmt.Println("同步Leader消息")
+			b.persistent.Append(data)
+			if b.persistent.Cap()%100 == 0 { // 每100个元素做一次快照
+				b.persistent.SnapShot()
+			}
+
 		}
 	}
 }
@@ -210,7 +218,6 @@ func (b *Broker) gracefulStop() error {
 }
 
 func (b *Broker) runMember() {
-	// 将原先Leader推数据的方式改为Member主动拉数据
 	// Member启动后连接Leader，注册信息，并同步数据
 	// Member定时发送心跳，并告知同步情况
 	// todo
@@ -220,14 +227,14 @@ func (b *Broker) runMember() {
 
 	host := strings.Split(b.LeaderAddress, ":")[0]
 	port, _ := strconv.Atoi(strings.Split(b.LeaderAddress, ":")[1])
-	member := client.NewMember(&client.Option{
+	b.memberClient = client.NewMember(&client.Option{
 		Protocol: "tcp",
 		Host:     host,
 		Port:     port,
 		Timeout:  3,
 	})
 	b.wg = errgroup.Group{}
-	fmt.Println(member)
+	b.wg.Go(b.memberClient.SendSync)
 	b.wg.Go(b.startPersistent)
 	b.wg.Go(b.handleSignal)
 	b.wg.Wait()

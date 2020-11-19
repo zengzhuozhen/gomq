@@ -14,8 +14,11 @@ type SyncAckPacket struct {
 
 func NewSyncAckPacket(identity uint16) SyncAckPacket {
 	return SyncAckPacket{
-		FixedHeader{TypeAndReserved: EncodePacketType(byte(protocol.SYNCACK))},
-		identity,
+		FixedHeader: FixedHeader{
+			TypeAndReserved: protocol.SYNCACK,
+			RemainingLength: 2,
+		},
+		PacketIdentifier: identity,
 	}
 }
 

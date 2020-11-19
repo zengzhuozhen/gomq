@@ -17,7 +17,7 @@ type UnSubAckPacket struct {
 func NewUnSubAckPacket(identity uint16) UnSubAckPacket {
 	return UnSubAckPacket{
 		FixedHeader: FixedHeader{
-			TypeAndReserved: EncodePacketType(byte(protocol.UNSUBACK)),
+			TypeAndReserved: utils.EncodePacketType(byte(protocol.UNSUBACK)),
 			RemainingLength: 2,
 		},
 		PacketIdentifier: identity,

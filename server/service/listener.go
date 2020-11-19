@@ -157,7 +157,20 @@ func ReadPacket(r io.Reader) (protocolPacket.ControlPacket, error) {
 
 	var packet protocolPacket.ControlPacket
 	var err error
-	switch protocolPacket.DecodePacketType(fh.TypeAndReserved) {
+
+	switch fh.TypeAndReserved {
+	case protocol.SYNCREQ:
+		packet = &protocolPacket.SyncReqPacket{}
+		err = packet.Read(r, fh)
+	case protocol.SYNCACK:
+		packet = &protocolPacket.SyncAckPacket{}
+		err = packet.Read(r, fh)
+	case protocol.SYNCOFFSET:
+		packet = &protocolPacket.SyncOffsetPacket{}
+		err = packet.Read(r, fh)
+	}
+
+	switch utils.DecodePacketType(fh.TypeAndReserved) {
 	case byte(protocol.PUBLISH):
 		packet = &protocolPacket.PublishPacket{}
 		err = packet.Read(r, fh)
@@ -172,15 +185,6 @@ func ReadPacket(r io.Reader) (protocolPacket.ControlPacket, error) {
 		err = packet.Read(r, fh)
 	case byte(protocol.DISCONNECT):
 		packet = &protocolPacket.DisConnectPacket{}
-		err = packet.Read(r, fh)
-	case byte(protocol.SYNCREQ):
-		packet = &protocolPacket.SyncReqPacket{}
-		err = packet.Read(r, fh)
-	case byte(protocol.SYNCACK):
-		packet = &protocolPacket.SyncAckPacket{}
-		err = packet.Read(r, fh)
-	case byte(protocol.SYNCOFFSET):
-		packet = &protocolPacket.SyncOffsetPacket{}
 		err = packet.Read(r, fh)
 	}
 	return packet, err

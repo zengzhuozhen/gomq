@@ -13,13 +13,14 @@ type SyncOffsetPacket struct {
 	PacketIdentifier uint16
 }
 
-func NewSYncOffsetPacket(offset uint64) SyncOffsetPacket {
+func NewSyncOffsetPacket(offset uint64,identity uint16) SyncOffsetPacket {
 	return SyncOffsetPacket{
 		FixedHeader: FixedHeader{
-			TypeAndReserved: EncodePacketType(byte(protocol.SYNCOFFSET)),
+			TypeAndReserved: protocol.SYNCOFFSET,
 			RemainingLength: 10, // 8个字节的offset + 2字节的identity
 		},
 		Offset: offset,
+		PacketIdentifier: identity,
 	}
 }
 
@@ -39,6 +40,7 @@ func (s *SyncOffsetPacket) ReadHeadOnly(r io.Reader, header FixedHeader) error {
 func (s *SyncOffsetPacket) Write(w io.Writer) error {
 	var body bytes.Buffer
 	var err error
+	body.Write(utils.EncodeUint64(s.Offset))
 	body.Write(utils.EncodeUint16(s.PacketIdentifier))
 	packet := s.FixedHeader.Pack()
 	packet.Write(body.Bytes())

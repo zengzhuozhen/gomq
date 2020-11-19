@@ -3,6 +3,7 @@ package packet
 import (
 	"bytes"
 	"gomq/protocol"
+	"gomq/protocol/utils"
 	"io"
 )
 
@@ -15,7 +16,7 @@ type DisConnectPacket struct {
 func NewDisConnectPacketPacket() DisConnectPacket {
 	return DisConnectPacket{
 		FixedHeader: FixedHeader{
-			TypeAndReserved: EncodePacketType(byte(protocol.PINGREQ)),
+			TypeAndReserved: utils.EncodePacketType(byte(protocol.PINGREQ)),
 		},
 	}
 }

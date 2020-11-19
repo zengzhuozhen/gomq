@@ -5,6 +5,7 @@ import (
 	"gomq/common"
 	"gomq/protocol"
 	protocolPacket "gomq/protocol/packet"
+	"gomq/protocol/utils"
 	"time"
 )
 
@@ -66,7 +67,7 @@ func (c *Consumer) ReadPacket(msgUnitChan chan<- *common.MessageUnit) {
 			return
 		}
 
-		switch protocolPacket.DecodePacketType(fh.TypeAndReserved) {
+		switch utils.DecodePacketType(fh.TypeAndReserved) {
 		case byte(protocol.SUBACK):
 			var subAckPacket protocolPacket.SubAckPacket
 			err := subAckPacket.Read(c.client.conn, fh)

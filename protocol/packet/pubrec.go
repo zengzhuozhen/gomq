@@ -15,7 +15,7 @@ type PubRecPacket struct {
 func NewPubRecPacket(identity uint16) PubRecPacket {
 	return PubRecPacket{
 		FixedHeader: FixedHeader{
-			TypeAndReserved: EncodePacketType(byte(protocol.PUBREC)),
+			TypeAndReserved: utils.EncodePacketType(byte(protocol.PUBREC)),
 			RemainingLength: 2,
 		},
 		PacketIdentifier: identity,

@@ -4,14 +4,15 @@ import (
 	"fmt"
 	protocolPacket "gomq/protocol/packet"
 	"net"
+	"time"
 )
 
 type MemberReceiver struct {
 	MemberConnPool map[string]net.Conn // Member连接
 	MemberSyncMap  map[string]uint64   // Member最新同步量
 
-	LowWaterPlane  uint64 // 低水位
-	HighWaterPlane uint64 // 高水位
+	LP uint64 // 低水位
+	HP uint64 // 高水位
 }
 
 func NewMemberReceiver() *MemberReceiver {
@@ -31,5 +32,6 @@ func (m *MemberReceiver) RegisterSyncAndResponse(conn net.Conn, packet *protocol
 }
 
 func (m *MemberReceiver) SyncOffset(conn net.Conn, packet *protocolPacket.SyncOffsetPacket) {
+	_ = conn.SetDeadline(time.Now().Add(5 * time.Second))
 	m.MemberSyncMap[conn.RemoteAddr().String()] = packet.Offset
 }

@@ -2,6 +2,7 @@ package packet
 
 import (
 	"gomq/protocol"
+	"gomq/protocol/utils"
 	"testing"
 )
 
@@ -59,7 +60,7 @@ var PacketType = []struct {
 
 func TestEncodePacketType(t *testing.T) {
 	for i, tt := range PacketType {
-		s := EncodePacketType(tt.in)
+		s := utils.EncodePacketType(tt.in)
 		if s != tt.out {
 			t.Errorf("%d => %d, wanted: %d", i, int(s), int(tt.out))
 		}
@@ -69,7 +70,7 @@ func TestEncodePacketType(t *testing.T) {
 func TestDecodePacketType(t *testing.T) {
 	for i, tt := range PacketType {
 		for _,u := range []byte{1,2,4,8}{
-			s := DecodePacketType(tt.out + u)	// 加上 1 ~ 3 bit 位的标识也应该正确识别
+			s := utils.DecodePacketType(tt.out + u) // 加上 1 ~ 3 bit 位的标识也应该正确识别
 			if s != tt.in {
 				t.Errorf("%d => %d, wanted: %d", i, int(s), int(tt.in))
 			}

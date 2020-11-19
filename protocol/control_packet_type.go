@@ -17,11 +17,13 @@ const (
 	PINGREQ
 	PINGRESP
 	DISCONNECT
-	// 自定义标识
-	SYNCREQ
+)
+
+const (
+	// 自定义标识  255(byte最大值) > X > 240(MQTT协议封包最大值)
+	SYNCREQ	 byte = 250 + iota
 	SYNCACK
 	SYNCOFFSET
-
 )
 
 // QoS

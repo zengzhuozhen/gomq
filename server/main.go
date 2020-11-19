@@ -7,10 +7,9 @@ import (
 )
 
 var endpoint = flag.String("endpoint", "127.0.0.1:9000", "服务运行地址")
-var partition = flag.Int("partition", 1, "分区数量")
 
 func main() {
 	flag.Parse()
-	opts := broker.NewOption(broker.Leader, *endpoint, []string{"127.0.0.1:2379"}, *partition)
+	opts := broker.NewOption(broker.Leader, *endpoint, []string{"127.0.0.1:2379"})
 	broker.NewBroker(opts).Run()
 }

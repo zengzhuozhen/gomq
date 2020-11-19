@@ -15,7 +15,7 @@ type PubCompPacket struct {
 func NewPubCompPacket(identity uint16) PubCompPacket {
 	return PubCompPacket{
 		FixedHeader: FixedHeader{
-			TypeAndReserved: EncodePacketType(byte(protocol.PUBCOMP)),
+			TypeAndReserved: utils.EncodePacketType(byte(protocol.PUBCOMP)),
 			RemainingLength: 2,
 		},
 		PacketIdentifier: identity,

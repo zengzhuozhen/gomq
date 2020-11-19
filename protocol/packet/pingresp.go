@@ -3,6 +3,7 @@ package packet
 import (
 	"bytes"
 	"gomq/protocol"
+	"gomq/protocol/utils"
 	"io"
 )
 
@@ -15,7 +16,7 @@ type PingRespPacket struct {
 func NewPingRespPacket() PingRespPacket {
 	return PingRespPacket{
 		FixedHeader: FixedHeader{
-			TypeAndReserved: EncodePacketType(byte(protocol.PINGRESP)),
+			TypeAndReserved: utils.EncodePacketType(byte(protocol.PINGRESP)),
 		},
 	}
 }

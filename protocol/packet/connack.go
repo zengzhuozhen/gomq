@@ -25,7 +25,7 @@ type ConnAckPacket struct {
 func NewConnectAckPack(code byte) ConnAckPacket {
 	return ConnAckPacket{
 		FixedHeader: FixedHeader{
-			TypeAndReserved: EncodePacketType(byte(protocol.CONNACK)),
+			TypeAndReserved: utils.EncodePacketType(byte(protocol.CONNACK)),
 			RemainingLength: 2,
 		},
 		ConnectAcknowledgeFlags: 1,

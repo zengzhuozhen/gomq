@@ -20,7 +20,7 @@ func NewSubAckPacket(Identifier uint16,QoSList []byte) SubAckPacket {
 	}
 	return SubAckPacket{
 		FixedHeader:      FixedHeader{
-			TypeAndReserved:EncodePacketType(byte(protocol.SUBACK)), // MQTT控制报文类型 (3)
+			TypeAndReserved: utils.EncodePacketType(byte(protocol.SUBACK)), // MQTT控制报文类型 (3)
 			RemainingLength: 2 + len(payLoad),
 		},
 		PacketIdentifier: Identifier,

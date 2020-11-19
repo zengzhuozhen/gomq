@@ -21,7 +21,7 @@ func NewSubscribePacket(Identifier uint16,topic []string, QoSRequire byte) Subsc
 	}
 	return SubscribePacket{
 		FixedHeader:      FixedHeader{
-			TypeAndReserved:EncodePacketType(byte(protocol.SUBSCRIBE)), // MQTT控制报文类型 (3)
+			TypeAndReserved: utils.EncodePacketType(byte(protocol.SUBSCRIBE)), // MQTT控制报文类型 (3)
 			RemainingLength: 2 + len(payLoad),
 		},
 		PacketIdentifier: Identifier,

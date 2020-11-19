@@ -14,8 +14,8 @@ type SyncReqPacket struct {
 
 func NewSyncReqPacket(identity uint16) SyncReqPacket {
 	return SyncReqPacket{
-		FixedHeader{TypeAndReserved: EncodePacketType(byte(protocol.SYNCREQ))},
-		identity,
+		FixedHeader:FixedHeader{TypeAndReserved: protocol.SYNCREQ},
+		PacketIdentifier:identity,
 	}
 }
 
