@@ -13,11 +13,19 @@ type Member struct {
 	client         *client
 	SyncOffset     uint64
 	PersistentChan chan common.MessageUnit
+
+	recentMsgBuffer map[uint64]struct{}
 }
 
 func NewMember(opts *Option) *Member {
 	client := NewClient(opts).(*client)
-	return &Member{client: client, opts: opts, SyncOffset: 0, PersistentChan: make(chan common.MessageUnit, 1000)}
+	return &Member{
+		client: client,
+		opts: opts,
+		SyncOffset: 0,
+		PersistentChan: make(chan common.MessageUnit),
+		recentMsgBuffer: make(map[uint64]struct{},1000),
+	}
 }
 
 func (m *Member) SendSync() error {
@@ -75,7 +83,21 @@ func (m *Member) ReadPacket() {
 			data := append(head.Bytes(), messByte[:n]...)
 			message := new(common.MessageUnit)
 			message = message.UnPack(data)
-			m.PersistentChan <- *message
+			if m.checkMsgExist(message.Data.MsgId) {
+				m.PersistentChan <- *message
+				m.SyncOffset++
+			}
+			// drop the message
 		}
 	}
 }
+
+func (m *Member)checkMsgExist(MsgId uint64) bool {
+	if _, ok :=m.recentMsgBuffer[MsgId];ok == true {
+		return true
+	}
+	// todo Bloom Filter to validate key exists
+
+	return false
+}
+

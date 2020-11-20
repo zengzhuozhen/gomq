@@ -88,6 +88,7 @@ func (b *Broker) Run() {
 		b.wg.Go(b.startConnLoop)
 		b.wg.Go(b.startTcpServer)
 		b.wg.Go(b.handleSignal)
+		b.wg.Go(b.MemberReceiver.Broadcast)
 		_ = b.wg.Wait()
 	}
 }
@@ -98,21 +99,17 @@ func (b *Broker) startPersistent() error {
 	b.persistent.Open()
 	b.persistent.Load()
 	for {
+		var data common.MessageUnit
 		if b.opt.identity == Leader {
-			data := <-b.ProducerReceiver.Queue.PersistentChan
+			data = <-b.ProducerReceiver.Queue.PersistentChan
 			fmt.Println("接收到持久化消息单元")
-			b.persistent.Append(data)
-			if b.persistent.Cap()%100 == 0 { // 每100个元素做一次快照
-				b.persistent.SnapShot()
-			}
 		} else {
-			data := <-b.memberClient.PersistentChan
+			data = <-b.memberClient.PersistentChan
 			fmt.Println("同步Leader消息")
-			b.persistent.Append(data)
-			if b.persistent.Cap()%100 == 0 { // 每100个元素做一次快照
-				b.persistent.SnapShot()
-			}
-
+		}
+		b.persistent.Append(data)
+		if b.persistent.Cap()%100 == 0 { // 每100个元素做一次快照
+			b.persistent.SnapShot()
 		}
 	}
 }
