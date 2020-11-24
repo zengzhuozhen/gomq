@@ -72,6 +72,9 @@ func (m *MemberReceiver) isNewOne(address string) bool {
 }
 
 func (m *MemberReceiver) isLowestOne(addr string, offset uint64) bool {
+	if len(m.MemberSyncMap) == 1 {
+		return true
+	}
 	for a, i := range m.MemberSyncMap {
 		if i <= offset && a != addr {
 			return false

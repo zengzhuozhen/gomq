@@ -42,6 +42,7 @@ func (l *LeaderBroker) startPersistent() error {
 			l.persistent.SnapShot()
 			l.MemberReceiver.HP += 100 // 自己做了持久化，更新高水位线
 		}
+		l.MemberReceiver.BroadcastChan <- data
 	}
 }
 
