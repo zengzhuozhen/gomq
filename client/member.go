@@ -83,7 +83,7 @@ func (m *Member) ReadPacket() {
 			data := append(head.Bytes(), messByte[:n]...)
 			message := new(common.MessageUnit)
 			message = message.UnPack(data)
-			if m.checkMsgExist(message.Data.MsgId) {
+			if !m.checkMsgExist(message.Data.MsgId) {
 				m.PersistentChan <- *message
 				m.SyncOffset++
 			}

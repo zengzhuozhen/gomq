@@ -73,7 +73,6 @@ func (l *Listener) holdConn(conn net.Conn) {
 		case *protocolPacket.PingReqPacket:
 			l.ConsumerReceiver.Pong(conn)
 		case *protocolPacket.SyncReqPacket:
-			// todo 每一个member 进来都保存其conn到连接池，每次Leader写入消息都同步到Member,Member定时发送同步量信号给Leader，Leader根据同步情况调节水位
 			l.MemberReceiver.RegisterSyncAndResponse(conn, packet.(*protocolPacket.SyncReqPacket))
 		case *protocolPacket.SyncOffsetPacket:
 			l.MemberReceiver.UpdateSyncOffset(conn, packet.(*protocolPacket.SyncOffsetPacket))
