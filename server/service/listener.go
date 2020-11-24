@@ -158,6 +158,7 @@ func ReadPacket(r io.Reader) (protocolPacket.ControlPacket, error) {
 	var err error
 
 	switch fh.TypeAndReserved {
+	// 自定义的协议包，无须解包
 	case protocol.SYNCREQ:
 		packet = &protocolPacket.SyncReqPacket{}
 		err = packet.Read(r, fh)
@@ -168,7 +169,7 @@ func ReadPacket(r io.Reader) (protocolPacket.ControlPacket, error) {
 		packet = &protocolPacket.SyncOffsetPacket{}
 		err = packet.Read(r, fh)
 	}
-
+	// MQTT协议包，需要做一层解包
 	switch utils.DecodePacketType(fh.TypeAndReserved) {
 	case byte(protocol.PUBLISH):
 		packet = &protocolPacket.PublishPacket{}
