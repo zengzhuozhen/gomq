@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/urfave/cli/v2"
+	"gomq/cmd/service"
 	"log"
 	"os"
 	"sort"
@@ -10,8 +11,8 @@ import (
 func main() {
 	app := cli.NewApp()
 	app.Usage = "mq tool for client"
-	app.Flags = initFlags()
-	app.Commands = initCommands()
+	app.Flags = service.Flags()
+	app.Commands = service.Commands()
 
 	sort.Sort(cli.FlagsByName(app.Flags))
 	sort.Sort(cli.CommandsByName(app.Commands))

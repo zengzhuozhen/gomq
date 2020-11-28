@@ -50,7 +50,7 @@ func TestConsumer_Subscribe_Topic_A_B_C(t *testing.T) {
 func defaultOpts() *Option {
 	return &Option{
 		Protocol: "tcp",
-		Address:  "127.0.0.1:9000",
+		Address:  "0.0.0.0:9000",
 		Timeout:  50,
 	}
 }

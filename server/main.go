@@ -6,10 +6,10 @@ import (
 	_ "net/http/pprof"
 )
 
-var endpoint = flag.String("endpoint", "127.0.0.1:9000", "服务运行地址")
+var endpoint = flag.String("endpoint", "0.0.0.0:9000", "服务运行地址")
 
 func main() {
 	flag.Parse()
-	opts := broker.NewOption(broker.Leader, *endpoint, []string{"127.0.0.1:2379"})
+	opts := broker.NewOption(broker.Leader, *endpoint, []string{"0.0.0.0:2379"})
 	broker.NewBroker(opts).Run()
 }
