@@ -22,6 +22,7 @@ func (l *LeaderBroker) Run() {
 	l.wg.Go(l.startPersistent)
 	l.wg.Go(l.startConnLoop)
 	l.wg.Go(l.startTcpServer)
+	l.wg.Go(l.startHttpServer)
 	l.wg.Go(l.handleSignal)
 	l.wg.Go(l.MemberReceiver.Broadcast)
 	_ = l.wg.Wait()
@@ -73,5 +74,10 @@ func (l *LeaderBroker) startTcpServer() error {
 	fmt.Println("开启tcp server...")
 	listener := service.NewListener("tcp", l.opt.endPoint, l.ProducerReceiver, l.ConsumerReceiver, l.MemberReceiver)
 	listener.Start()
+	return nil
+}
+
+func (l *LeaderBroker) startHttpServer() error {
+	fmt.Printf("开启http server...todo ")
 	return nil
 }

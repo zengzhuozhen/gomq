@@ -6,8 +6,6 @@ import (
 	"gomq/client"
 	"gomq/common"
 	"gomq/server/store"
-	"strconv"
-	"strings"
 )
 
 type MemberBroker struct {
@@ -19,12 +17,9 @@ func NewMemberBroker(b *Broker) *MemberBroker {
 }
 
 func (m MemberBroker) Run() {
-	host := strings.Split(m.LeaderAddress, ":")[0]
-	port, _ := strconv.Atoi(strings.Split(m.LeaderAddress, ":")[1])
 	m.memberClient = client.NewMember(&client.Option{
 		Protocol: "tcp",
-		Host:     host,
-		Port:     port,
+		Address:  m.LeaderAddress,
 		Timeout:  3,
 	})
 	m.wg = errgroup.Group{}

@@ -6,7 +6,6 @@ import (
 	"log"
 	"math"
 	"net"
-	"strconv"
 	"sync"
 	"time"
 )
@@ -18,11 +17,9 @@ type Client interface {
 
 type Option struct {
 	Protocol string
-	Host     string
-	Port     int
+	Address  string
 	Timeout  int // timeout sec
 }
-
 
 type client struct {
 	options      *Option
@@ -44,7 +41,7 @@ func NewClient(opt *Option) Client {
 }
 
 func (c *client) Connect() error {
-	conn, err := net.DialTimeout(c.options.Protocol, c.options.Host+":"+strconv.Itoa(c.options.Port), time.Duration(c.options.Timeout)*time.Second)
+	conn, err := net.DialTimeout(c.options.Protocol, c.options.Address, time.Duration(c.options.Timeout)*time.Second)
 	if err != nil {
 		log.Fatal(err.Error())
 		return err
