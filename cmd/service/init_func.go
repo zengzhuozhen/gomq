@@ -15,14 +15,12 @@ func Flags() []cli.Flag {
 			Name:        "topic",
 			Aliases:     []string{"t"},
 			Usage:       "the topic you care",
-			Required:    true,
 			Destination: &topic,
 		},
 		&cli.StringFlag{
 			Name:        "connect",
 			Aliases:     []string{"c"},
 			Usage:       "connect the server broker",
-			Required:    false,
 			Destination: &connect,
 		},
 	}
@@ -41,9 +39,14 @@ func Commands() []*cli.Command {
 			Action: SubscribeMessage,
 		},
 		{
-			Name:    "list",
-			Usage:   "list message",
-			Action : ListTopic,
+			Name:   "list",
+			Usage:  "list message",
+			Action: ListTopic,
+		},
+		{
+			Name:   "version",
+			Usage:  "get current version",
+			Action: GetVersion,
 		},
 	}
 }

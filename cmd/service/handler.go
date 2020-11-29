@@ -1,10 +1,12 @@
 package service
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/urfave/cli/v2"
 	"gomq/client"
+	"gomq/cmd/do"
 	"gomq/common"
 	"strings"
 )
@@ -35,7 +37,18 @@ func SubscribeMessage(c *cli.Context) error {
 }
 
 func ListTopic(c *cli.Context) error {
-	// todo http connect client to get server metadata
+
+	return nil
+}
+
+
+func GetVersion(context *cli.Context) error {
+
+	resp := common.HttpGet(fmt.Sprintf("127.0.0.1/version"))
+	versionDo := new(do.VersionDo)
+	_ = json.Unmarshal([]byte(resp),versionDo)
+	fmt.Println("gomq version:",versionDo.Gomq)
+	fmt.Println("gomqctl version:",versionDo.GomqCtl)
 	return nil
 }
 
