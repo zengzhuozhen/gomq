@@ -30,7 +30,7 @@ func (l *LeaderBroker) Run() {
 
 func (l *LeaderBroker) startPersistent() error {
 	fmt.Println("开启持久化协程")
-	l.persistent = store.NewFileStore()
+	l.persistent = store.NewMemStore()
 	l.persistent.Open()
 	l.persistent.Load()
 	for {
@@ -72,12 +72,14 @@ func (l *LeaderBroker) startConnLoop() error {
 
 func (l *LeaderBroker) startTcpServer() error {
 	fmt.Println("开启tcp server...")
-	listener := service.NewListener("tcp", l.opt.endPoint, l.ProducerReceiver, l.ConsumerReceiver, l.MemberReceiver)
-	listener.Start()
+	tcp := service.NewTCP( l.opt.endPoint,l.ProducerReceiver, l.ConsumerReceiver, l.MemberReceiver)
+	tcp.Start()
 	return nil
 }
 
 func (l *LeaderBroker) startHttpServer() error {
-	fmt.Printf("开启http server...todo ")
+	fmt.Printf("开启http server... ")
+	http := service.NewHTTP()
+	http.Start()
 	return nil
 }

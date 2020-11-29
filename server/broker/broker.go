@@ -33,6 +33,10 @@ const (
 	StoreByFile
 )
 
+
+
+
+
 type option struct {
 	identity int
 	endPoint string
@@ -116,6 +120,7 @@ func (b *Broker) register() {
 	resp, _ = kv.Get(ctx, LeaderId)
 	b.LeaderId = string(resp.Kvs[0].Value)
 
+	fmt.Println("获取leader")
 	resp, _ = kv.Get(ctx, FollowerPath, clientv3.WithPrefix())
 	for _, i := range resp.Kvs {
 		clientId := strings.SplitAfter(string(i.Key), FollowerPath)[1]
@@ -125,7 +130,7 @@ func (b *Broker) register() {
 
 func (b *Broker) startPprof() error {
 	fmt.Println("开启pprof")
-	ip := "0.0.0.0:6060"
+	ip := "127.0.0.1:6060"
 	if err := http.ListenAndServe(ip, nil); err != nil {
 		fmt.Printf("start pprof failed on %s\n", ip)
 	}
@@ -156,3 +161,5 @@ func (b *Broker) gracefulStop() error {
 	}
 	return err
 }
+
+

@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-type Listener struct {
+type TCP struct {
 	protocol string
 	address  string
 	*ProducerReceiver
@@ -21,9 +21,9 @@ type Listener struct {
 	*MemberReceiver
 }
 
-func NewListener(protocol, address string, PR *ProducerReceiver, CR *ConsumerReceiver, MR *MemberReceiver) *Listener {
-	return &Listener{
-		protocol:         protocol,
+func NewTCP(address string, PR *ProducerReceiver, CR *ConsumerReceiver, MR *MemberReceiver) *TCP {
+	return &TCP{
+		protocol:         "tcp",
 		address:          address,
 		ProducerReceiver: PR,
 		ConsumerReceiver: CR,
@@ -31,7 +31,7 @@ func NewListener(protocol, address string, PR *ProducerReceiver, CR *ConsumerRec
 	}
 }
 
-func (l *Listener) Start() {
+func (l *TCP) Start() {
 	listen, err := net.Listen(l.protocol, l.address)
 	if err != nil {
 		log.Fatal(err.Error())
@@ -50,7 +50,7 @@ func (l *Listener) Start() {
 	}
 }
 
-func (l *Listener) holdConn(conn net.Conn) {
+func (l *TCP) holdConn(conn net.Conn) {
 	// 如果没有可读数据，也就是读 buffer 为空，则阻塞
 	ctx, cancel := context.WithCancel(context.Background())
 	_ = conn.SetDeadline(time.Now().Add(10 * time.Second))
