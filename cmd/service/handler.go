@@ -36,15 +36,21 @@ func SubscribeMessage(c *cli.Context) error {
 	return nil
 }
 
-func ListTopic(c *cli.Context) error {
-
+func ListTopic(context *cli.Context) error {
+	resp := common.HttpGet(fmt.Sprintf("http://127.0.0.1:8000/topic/%s",context.Args().First()))
+	listDo := new(do.MessagesDo)
+	_ = json.Unmarshal([]byte(resp),listDo)
+	fmt.Println("topic:",listDo.TopicName)
+	for _ , msg := range listDo.MessageList{
+		fmt.Println(msg)
+	}
 	return nil
 }
 
 
 func GetVersion(context *cli.Context) error {
 
-	resp := common.HttpGet(fmt.Sprintf("127.0.0.1/version"))
+	resp := common.HttpGet("http://127.0.0.1:8000/version")
 	versionDo := new(do.VersionDo)
 	_ = json.Unmarshal([]byte(resp),versionDo)
 	fmt.Println("gomq version:",versionDo.Gomq)

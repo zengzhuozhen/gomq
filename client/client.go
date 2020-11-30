@@ -54,8 +54,10 @@ func (c *client) Connect() error {
 
 	var fh packet.FixedHeader
 	var connAckPacket packet.ConnAckPacket
+
 	if err := fh.Read(conn); err != nil {
 		fmt.Println("接收connAck包头内容错误", err)
+		return err
 	}
 	err = connAckPacket.Read(conn, fh)
 	if err != nil {

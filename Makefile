@@ -10,6 +10,7 @@ build:
 	go build -o gomqctl cmd/main.go
 
 
+
 #运行
 run:
 	go run -v ./server/main.go

@@ -1,12 +1,12 @@
 package service
 
-import (
-	"github.com/gin-gonic/gin"
-)
+import "net/http"
 
-func initRouter() *gin.Engine{
-	router := gin.Default()
-	router.GET("/version", Version)
+func NewServeMux() *http.ServeMux {
+	mux := http.NewServeMux()
 
-	return router
+	mux.HandleFunc("/version",Version)
+	mux.HandleFunc("/messages", Messages)
+
+	return mux
 }

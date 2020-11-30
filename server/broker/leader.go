@@ -79,7 +79,7 @@ func (l *LeaderBroker) startTcpServer() error {
 
 func (l *LeaderBroker) startHttpServer() error {
 	fmt.Printf("开启http server... ")
-	http := service.NewHTTP()
+	http := service.NewHTTP(l.ProducerReceiver,l.ConsumerReceiver)
 	http.Start()
 	return nil
 }

@@ -31,7 +31,7 @@ func (m MemberBroker) Run() {
 
 func (m *MemberBroker) startPersistent() error {
 	fmt.Println("开启持久化协程")
-	m.persistent = store.NewFileStore()
+	m.persistent = store.NewMemStore()
 	m.persistent.Open()
 	m.persistent.Load()
 	for {

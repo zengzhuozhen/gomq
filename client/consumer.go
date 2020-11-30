@@ -28,7 +28,6 @@ func NewConsumer(opts *Option) IConsumer {
 
 func (c *Consumer) Subscribe(topic []string) <-chan *common.MessageUnit {
 	err := c.client.Connect()
-	fmt.Println(c.client.conn.LocalAddr().String())
 	if err != nil {
 		panic("连接服务端失败")
 	}

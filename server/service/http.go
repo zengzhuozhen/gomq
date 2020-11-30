@@ -1,21 +1,27 @@
 package service
 
-import "github.com/gin-gonic/gin"
+import (
+	"net/http"
+)
 
 type HTTP struct {
 	protocol string
-	engine   *gin.Engine
+	mux      *http.ServeMux
+	*ProducerReceiver
+	*ConsumerReceiver
 }
 
-func NewHTTP() *HTTP {
+func NewHTTP(PR *ProducerReceiver, CR *ConsumerReceiver) *HTTP {
 	return &HTTP{
-		protocol: "http",
-		engine:   initRouter(),
+		protocol:         "http",
+		mux:              NewServeMux(),
+		ProducerReceiver: PR,
+		ConsumerReceiver: CR,
 	}
 }
 
 
 
-func (h *HTTP)Start(){
-	h.engine.Run(":8000")
+func (h *HTTP) Start() {
+	_ = http.ListenAndServe(":8000", h.mux)
 }
