@@ -16,11 +16,11 @@ type filestore struct {
 	cap      int
 }
 
-func NewFileStore() Store {
+func NewFileStore(savePath string) Store {
 	return &filestore{
 		locker:   new(sync.RWMutex),
 		isOpen:   false,
-		fileName: "/var/log/tempmq.log",
+		fileName: savePath,
 	}
 }
 

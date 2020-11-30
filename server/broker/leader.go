@@ -30,7 +30,7 @@ func (l *LeaderBroker) Run() {
 
 func (l *LeaderBroker) startPersistent() error {
 	fmt.Println("开启持久化协程")
-	l.persistent = store.NewMemStore()
+	l.persistent = store.NewFileStore(l.opt.savePath)
 	l.persistent.Open()
 	l.persistent.Load()
 	for {
@@ -78,7 +78,7 @@ func (l *LeaderBroker) startTcpServer() error {
 }
 
 func (l *LeaderBroker) startHttpServer() error {
-	fmt.Printf("开启http server... ")
+	fmt.Println("开启http server... ")
 	http := service.NewHTTP(l.ProducerReceiver,l.ConsumerReceiver)
 	http.Start()
 	return nil

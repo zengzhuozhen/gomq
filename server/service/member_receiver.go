@@ -13,17 +13,19 @@ type MemberReceiver struct {
 	MemberSyncMap    map[string]uint64   // Member最新同步量
 	MemberQuitSignal chan string         // member remote address
 	BroadcastChan    common.MsgUnitChan
+	Queue            *common.Queue
 
 	LP uint64 // 低水位
 	HP uint64 // 高水位
 }
 
-func NewMemberReceiver() *MemberReceiver {
+func NewMemberReceiver(queue *common.Queue) *MemberReceiver {
 	return &MemberReceiver{
 		MemberConnPool:   make(map[string]net.Conn, 1000),
 		MemberSyncMap:    make(map[string]uint64, 1000),
 		MemberQuitSignal: make(chan string),
 		BroadcastChan:    make(common.MsgUnitChan),
+		Queue:            queue,
 	}
 }
 
@@ -34,13 +36,7 @@ func (m *MemberReceiver) Broadcast() error {
 			messagePacket := msg.Pack()
 			fmt.Printf("Leader准备广播消息:{Topic:'%s'} {Body:'%s'}", msg.Topic, msg.Data.Body)
 			for address, conn := range m.MemberConnPool {
-				// 广播到每个member之前，先看看member是不是新来的，是的话先同步一下此前所有记录
-				if m.isNewOne(address) {
-					// todo 同步旧数据
-				}
-				if _, err := conn.Write(messagePacket); err != nil {
-					fmt.Println(err)
-				}
+				m.send(address, conn, messagePacket)
 			}
 		case address := <-m.MemberQuitSignal:
 			fmt.Printf("Member{socket:'%s'}连接关闭")
@@ -48,6 +44,28 @@ func (m *MemberReceiver) Broadcast() error {
 		}
 	}
 }
+
+func (m *MemberReceiver) send(address string, conn net.Conn, messagePacket []byte) {
+	if m.isNewOne(address) {
+		// 广播到每个member之前，先看看member是不是新来的，是的话先同步一下此前所有记录
+		for topic, dataAssemble := range m.Queue.Local {
+			for _, msg := range dataAssemble {
+				if topic != msg.Topic {
+					fmt.Println("主题和数据内容不符合")
+				}
+				if _, err := conn.Write(msg.Pack()); err != nil {
+					fmt.Println(err)
+				}
+			}
+		}
+	} else {
+		if _, err := conn.Write(messagePacket); err != nil {
+			fmt.Println(err)
+		}
+	}
+}
+
+
 
 func (m *MemberReceiver) RegisterSyncAndResponse(conn net.Conn, packet *protocolPacket.SyncReqPacket) {
 	m.MemberConnPool[conn.RemoteAddr().String()] = conn

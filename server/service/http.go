@@ -7,20 +7,19 @@ import (
 type HTTP struct {
 	protocol string
 	mux      *http.ServeMux
-	*ProducerReceiver
-	*ConsumerReceiver
+	handler  *Handler
 }
 
 func NewHTTP(PR *ProducerReceiver, CR *ConsumerReceiver) *HTTP {
-	return &HTTP{
-		protocol:         "http",
-		mux:              NewServeMux(),
+	handler := &Handler{
 		ProducerReceiver: PR,
 		ConsumerReceiver: CR,
 	}
+	return &HTTP{
+		protocol: "http",
+		mux:      NewServeMux(handler),
+	}
 }
-
-
 
 func (h *HTTP) Start() {
 	_ = http.ListenAndServe(":8000", h.mux)

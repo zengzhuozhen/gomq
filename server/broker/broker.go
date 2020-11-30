@@ -11,7 +11,6 @@ import (
 	"gomq/server/service"
 	"gomq/server/store"
 	"log"
-	"net/http"
 	"os"
 	"os/signal"
 	"strings"
@@ -33,21 +32,21 @@ const (
 	StoreByFile
 )
 
-
-
-
-
 type option struct {
-	identity int
-	endPoint string
-	etcdUrls []string
+	identity       int
+	endPoint       string
+	etcdUrls       []string
+	savePath       string
+	needPersistent bool
 }
 
-func NewOption(identity int, endPoint string, etcdUrls []string) *option {
+func NewOption(identity int, endPoint, savePath string, needPersistent bool, etcdUrls []string) *option {
 	return &option{
-		identity: identity,
-		endPoint: endPoint,
-		etcdUrls: etcdUrls,
+		identity:       identity,
+		endPoint:       endPoint,
+		etcdUrls:       etcdUrls,
+		savePath:       savePath,
+		needPersistent: needPersistent,
 	}
 }
 
@@ -55,7 +54,6 @@ type IBroker interface {
 	Run()
 }
 
-// todo Broker 之上在加一层Leader和Member
 type Broker struct {
 	brokerId         string
 	opt              *option
@@ -75,9 +73,11 @@ func NewBroker(opt *option) IBroker {
 	broker := new(Broker)
 	broker.brokerId = uuid.New().String()
 	broker.opt = opt
-	broker.ProducerReceiver = service.NewProducerReceiver()
+
+	queue := common.NewQueue(opt.needPersistent)
+	broker.ProducerReceiver = service.NewProducerReceiver(queue)
 	broker.ConsumerReceiver = service.NewConsumerReceiver(make(map[string][]common.MsgUnitChan, 1024))
-	broker.MemberReceiver = service.NewMemberReceiver()
+	broker.MemberReceiver = service.NewMemberReceiver(queue)
 	broker.FollowersRemote = make(map[string]string)
 
 	broker.register()
@@ -128,15 +128,6 @@ func (b *Broker) register() {
 	}
 }
 
-func (b *Broker) startPprof() error {
-	fmt.Println("开启pprof")
-	ip := "127.0.0.1:6060"
-	if err := http.ListenAndServe(ip, nil); err != nil {
-		fmt.Printf("start pprof failed on %s\n", ip)
-	}
-	return nil
-}
-
 func (b *Broker) handleSignal() error {
 	sigChan := make(chan os.Signal)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
@@ -161,5 +152,3 @@ func (b *Broker) gracefulStop() error {
 	}
 	return err
 }
-
-

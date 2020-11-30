@@ -41,7 +41,7 @@ func Commands() []*cli.Command {
 		{
 			Name:   "list",
 			Usage:  "list message",
-			Action: ListTopic,
+			Action: ListMessage,
 		},
 		{
 			Name:   "version",
