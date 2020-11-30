@@ -7,8 +7,9 @@ implement a sample message queue by golang . :smile:
    
 <h3>Quick Start</h3>
 
-  make dockerPrepare
-  docker-compose up -d 
+    make dockerPrepare
+  
+    docker-compose up -d 
   
 <h3>Publish</h3>
 
