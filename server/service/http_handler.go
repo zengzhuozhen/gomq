@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"gomq/cmd/do"
+	"gomq/common"
+	"gomq/protocol/packet"
 	"net/http"
 )
 
@@ -28,7 +30,7 @@ func (h *Handler) Messages(writer http.ResponseWriter, request *http.Request) {
 	listMessageDo := new(do.MessagesDo)
 	listMessageDo.TopicName = topicName
 
-	for _, message := range h.ProducerReceiver.Queue.local[topicName] {
+	for _, message := range h.ProducerReceiver.Queue.Local[topicName] {
 		listMessageDo.MessageList = append(listMessageDo.MessageList, message.Data.Body)
 	}
 
@@ -42,6 +44,13 @@ func (h *Handler) Publish(writer http.ResponseWriter, request *http.Request) {
 	topicName := vars.Get("topic")
 	body := vars.Get("body")
 
+	message := common.Message{
+		MsgId:  0,
+		MsgKey: "",
+		Body:   body,
+	}
+	publishPacket := packet.NewPublishPacket(topicName,message,true, 0, 0, 0)
+	h.ProducerReceiver.toQueue(&publishPacket)
 	fmt.Println(topicName,body)
 
 	writer.Write([]byte("ok"))

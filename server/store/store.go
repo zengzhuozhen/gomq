@@ -9,8 +9,6 @@ type Store interface {
 	Open()
 	// 追加数据
 	Append(item common.MessageUnit)
-	// 快照
-	SnapShot()
 	// 重置
 	Reset()
 	// 加载到内存

@@ -13,9 +13,7 @@ type ProducerReceiver struct {
 }
 
 func NewProducerReceiver(queue *common.Queue) *ProducerReceiver {
-	return &ProducerReceiver{
-
-	}
+	return &ProducerReceiver{Queue:queue}
 }
 
 func (p *ProducerReceiver) ProduceAndResponse(conn net.Conn, publishPacket *protocolPacket.PublishPacket) {
@@ -43,15 +41,19 @@ func (p *ProducerReceiver) ProduceAndResponse(conn net.Conn, publishPacket *prot
 	if needHandleRetain {
 		protocolPacket.HandleRetain()
 	}
+	p.toQueue(publishPacket)
+}
+
+
+func (p *ProducerReceiver) toQueue(publishPacket *protocolPacket.PublishPacket){
 	message := new(common.Message)
 	message = message.UnPack(publishPacket.Payload)
 	messageUnit := common.NewMessageUnit(publishPacket.TopicName, *message)
 	fmt.Printf("主题 %s 生产了: %s ", publishPacket.TopicName, message.MsgKey)
 	p.Queue.Push(messageUnit)
-
 	fmt.Println("记录入队数据", message.MsgKey)
-
 }
+
 
 func responsePubAck(conn net.Conn, identify uint16) {
 	fmt.Println("发送puback")

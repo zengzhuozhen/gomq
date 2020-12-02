@@ -18,7 +18,6 @@ type ConsumerReceiver struct {
 
 func NewConsumerReceiver(chanAssemble map[string][]common.MsgUnitChan) *ConsumerReceiver {
 	return &ConsumerReceiver{ChanAssemble: chanAssemble, Pool: &Pool{
-		ConnUids: []string{},
 		State:    new(sync.Map),
 		Position: make(map[string][]int64, 1024),
 		Topic:    make(map[string][]string, 1024),
@@ -116,30 +115,28 @@ func (r *ConsumerReceiver) Pong(conn net.Conn) {
 }
 
 type Pool struct {
-	ConnUids []string
-	State    *sync.Map
+	State *sync.Map
 	// position 和 topic 总是相对应的
-	Position map[string][]int64  // Position[ConnId]{Topic_A_position,Topic_B_position,Topic_C_position}
-	Topic    map[string][]string // Topic[ConnId]{Topic_A,Topic_B,Topic_C}
+	// Position[ConnId]{Topic_A_position,Topic_B_position,Topic_C_position}
+	//							｜				｜				｜
+	// Topic[ConnId]   {	Topic_A,		Topic_B,		Topic_C		}
+	Position map[string][]int64
+	Topic    map[string][]string
 	mu       sync.Mutex
 }
 
 func (p *Pool) ForeachActiveConn() []string {
 	connUids := make([]string, 0)
-	for _, i := range p.ConnUids {
-		isActive, ok := p.State.Load(i)
-		if !ok {
-			panic("active not exist in state Pool")
+	p.State.Range(func(connUid, isActive interface{}) bool {
+		if isActive.(bool) == true && len(p.Topic[connUid.(string)]) != 0 {
+			connUids = append(connUids, connUid.(string))
 		}
-		if isActive == true && len(p.Topic[i]) != 0 {
-			connUids = append(connUids, i)
-		}
-	}
+		return true
+	})
 	return connUids
 }
 
 func (p *Pool) Add(connUid string, topics []string) {
-	p.ConnUids = append(p.ConnUids, connUid)
 	p.State.Store(connUid, true)
 	p.Position[connUid] = make([]int64, len(topics))
 	p.Topic[connUid] = topics

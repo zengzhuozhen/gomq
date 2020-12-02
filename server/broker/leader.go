@@ -19,16 +19,19 @@ func NewLeaderBroker(b *Broker) *LeaderBroker {
 
 func (l *LeaderBroker) Run() {
 	l.wg = errgroup.Group{}
-	l.wg.Go(l.startPersistent)
 	l.wg.Go(l.startConnLoop)
 	l.wg.Go(l.startTcpServer)
 	l.wg.Go(l.startHttpServer)
+	l.wg.Go(l.startPersistent)
 	l.wg.Go(l.handleSignal)
 	l.wg.Go(l.MemberReceiver.Broadcast)
 	_ = l.wg.Wait()
 }
 
 func (l *LeaderBroker) startPersistent() error {
+	if l.opt.needPersistent == false{
+		return  nil
+	}
 	fmt.Println("开启持久化协程")
 	l.persistent = store.NewFileStore(l.opt.savePath)
 	l.persistent.Open()
@@ -39,10 +42,7 @@ func (l *LeaderBroker) startPersistent() error {
 		fmt.Println("接收到持久化消息单元")
 
 		l.persistent.Append(data)
-		if l.persistent.Cap()%100 == 0 { // 每100个元素做一次快照
-			l.persistent.SnapShot()
-			l.MemberReceiver.HP += 100 // 自己做了持久化，更新高水位线
-		}
+		l.MemberReceiver.HP += 100 // 自己做了持久化，更新高水位线，基于内存的无效
 		l.MemberReceiver.BroadcastChan <- data
 	}
 }

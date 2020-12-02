@@ -52,9 +52,6 @@ func (f *filestore) Append(item common.MessageUnit) {
 	}
 }
 
-func (f *filestore) SnapShot() {
-	return
-}
 
 func (f *filestore) Reset() {
 	return

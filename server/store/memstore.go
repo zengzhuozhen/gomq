@@ -40,9 +40,6 @@ func (m *memStore) Append(item common.MessageUnit) {
 	m.data = append(m.data,item)
 }
 
-func (m *memStore) SnapShot() {
-	return
-}
 
 func (m *memStore) Reset() {
 	m.locker.Lock()

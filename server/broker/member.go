@@ -39,8 +39,5 @@ func (m *MemberBroker) startPersistent() error {
 		data = <-m.memberClient.PersistentChan
 		fmt.Println("同步Leader消息")
 		m.persistent.Append(data)
-		if m.persistent.Cap()%100 == 0 { // 每100个元素做一次快照
-			m.persistent.SnapShot()
-		}
 	}
 }
