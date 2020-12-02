@@ -3,6 +3,7 @@ package client
 import (
 	"fmt"
 	"testing"
+	"time"
 )
 
 func TestConsumer_Subscribe_Topic_A(t *testing.T) {
@@ -45,6 +46,22 @@ func TestConsumer_Subscribe_Topic_A_B_C(t *testing.T) {
 	for msg := range retChan {
 		fmt.Println(msg)
 	}
+}
+
+func TestConsumer_Subscribe_Then_Unsubscribe(t *testing.T) {
+	opts := defaultOpts()
+	consumer := NewConsumer(opts)
+	topicList := []string{"A", "B", "C"}
+	retChan := consumer.Subscribe(topicList)
+	go func() {
+		for msg := range retChan {
+			fmt.Println(msg)
+		}
+	}()
+	time.Sleep(5 * time.Second)
+	consumer.UnSubscribe()
+	time.Sleep(5 * time.Second)
+
 }
 
 func defaultOpts() *Option {

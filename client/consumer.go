@@ -1,6 +1,7 @@
 package client
 
 import (
+	"context"
 	"fmt"
 	"gomq/common"
 	"gomq/protocol"
@@ -11,14 +12,15 @@ import (
 
 type IConsumer interface {
 	Subscribe(topic []string) <-chan *common.MessageUnit
-	Heart(duration time.Duration)
-	ReadPacket(msgChan chan<- *common.MessageUnit)
-	UnSubscribe(topic []string, identifier uint16)
+	Heart(ctx context.Context, duration time.Duration)
+	ReadPacket(cancel context.CancelFunc, msgChan chan<- *common.MessageUnit)
+	UnSubscribe()
 	DisConnect()
 }
 
 type Consumer struct {
 	client *client
+	topic  []string
 }
 
 func NewConsumer(opts *Option) IConsumer {
@@ -27,6 +29,7 @@ func NewConsumer(opts *Option) IConsumer {
 }
 
 func (c *Consumer) Subscribe(topic []string) <-chan *common.MessageUnit {
+	c.topic = topic
 	err := c.client.Connect()
 	if err != nil {
 		panic("连接服务端失败")
@@ -40,12 +43,13 @@ func (c *Consumer) Subscribe(topic []string) <-chan *common.MessageUnit {
 	fmt.Println("发送subscribe")
 
 	MsgUnitChan := make(chan *common.MessageUnit, 1000)
-	go c.Heart(3 * time.Second)
-	go c.ReadPacket(MsgUnitChan)
+	ctx, cancel := context.WithCancel(context.Background())
+	go c.Heart(ctx, 3*time.Second)
+	go c.ReadPacket(cancel, MsgUnitChan)
 	return MsgUnitChan
 }
 
-func (c *Consumer) Heart(duration time.Duration) {
+func (c *Consumer) Heart(ctx context.Context, duration time.Duration) {
 	tickTimer := time.NewTicker(duration)
 	for {
 		select {
@@ -53,11 +57,14 @@ func (c *Consumer) Heart(duration time.Duration) {
 			fmt.Println("发送心跳包")
 			pingReqPack := protocolPacket.NewPingReqPacket()
 			pingReqPack.Write(c.client.conn)
+		case <-ctx.Done():
+			fmt.Println("停止发送心跳")
+			return
 		}
 	}
 }
 
-func (c *Consumer) ReadPacket(msgUnitChan chan<- *common.MessageUnit) {
+func (c *Consumer) ReadPacket(cancel context.CancelFunc, msgUnitChan chan<- *common.MessageUnit) {
 	for {
 		// 读取数据包
 		var fh protocolPacket.FixedHeader
@@ -80,7 +87,10 @@ func (c *Consumer) ReadPacket(msgUnitChan chan<- *common.MessageUnit) {
 			var unSubAckPacket protocolPacket.UnSubAckPacket
 			_ = fh.Read(c.client.conn)
 			unSubAckPacket.Read(c.client.conn, fh)
-			fmt.Println("收到服务端确认取消订阅")
+			fmt.Println("收到服务端确认取消订阅,退出消费")
+			close(msgUnitChan)
+			c.client.conn.Close()
+			cancel()
 		case byte(protocol.PINGRESP):
 			fmt.Println("收到服务端心跳回应")
 		default:
@@ -96,8 +106,8 @@ func (c *Consumer) ReadPacket(msgUnitChan chan<- *common.MessageUnit) {
 	}
 }
 
-func (c *Consumer) UnSubscribe(topic []string, identifier uint16) {
-	unSubscribePack := protocolPacket.NewUnSubscribePacket(identifier, topic)
+func (c *Consumer) UnSubscribe() {
+	unSubscribePack := protocolPacket.NewUnSubscribePacket(c.client.GetAvailableIdentity(), c.topic)
 	_ = unSubscribePack.Write(c.client.conn)
 }
 

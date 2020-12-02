@@ -26,5 +26,5 @@ CMD gomq
 #
 #COPY  ./gomq     /usr/local/bin
 #COPY  ./gomqctl  /usr/local/bin
-
+#
 #CMD gomq

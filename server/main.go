@@ -7,7 +7,7 @@ import (
 	_ "net/http/pprof"
 )
 
-var endpoint = flag.String("endpoint", "127.0.0.1:9000", "mq服务运行地址")
+var endpoint = flag.String("endpoint", "0.0.0.0:9000", "mq服务运行地址")
 var savepath = flag.String("savepath", "/var/log/tempmq.log", "mq数据保存路径")
 var persistent = flag.Bool("persistent", true, "是否开启持久化")
 var etcdurl string
