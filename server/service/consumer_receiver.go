@@ -94,6 +94,7 @@ func (r *ConsumerReceiver) CloseConsumer(conn net.Conn, packet *protocolPacket.U
 		// 找出此次需要关闭的 topic 通道对应的 key ，需严格保证 Pool 中所有数组顺序排列
 		for k, top := range r.Pool.Topic[connUid] {
 			if top == topic {
+				fmt.Println("关闭",connUid,"的主题",topic)
 				close(r.ChanAssemble[connUid][k])
 			}
 		}
