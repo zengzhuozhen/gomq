@@ -20,6 +20,8 @@ func init() {
 	}
 }
 
+
+// todo 零拷贝 copyBuffer , impl writeTo and ReadFrom
 func main() {
 	flag.Parse()
 	opts := broker.NewOption(broker.Leader, *endpoint, *savepath, *persistent, []string{etcdurl} )

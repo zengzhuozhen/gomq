@@ -97,6 +97,13 @@ func handleConnectProtocol(conn net.Conn) bool {
 		return false
 	}
 
+
+	if !connPacket.IsSuitableProtocolLevel(){
+		fmt.Println("不满足客户端要求的协议等级")
+		responseConnectAck(conn, protocol.UnSupportProtocolVersion)
+		return false
+	}
+
 	//----判断是否满足协议规范-----
 
 	if !connPacket.IsReserved() {
@@ -113,21 +120,21 @@ func handleConnectProtocol(conn net.Conn) bool {
 	//----以下为满足报文规范的情况---
 
 	if !connPacket.IsLegalIdentifier() {
-		responseConnectAck(conn, protocolPacket.UnSupportClientIdentity)
+		responseConnectAck(conn, protocol.UnSupportClientIdentity)
 		fmt.Println("客户端唯一标识错误")
 		conn.Close()
 		return false
 	}
 
 	if ! connPacket.IsAuthorizedClient() {
-		responseConnectAck(conn, protocolPacket.UnAuthorization)
+		responseConnectAck(conn, protocol.UnAuthorization)
 		fmt.Println("客户端未授权")
 		conn.Close()
 		return false
 	}
 
 	if !connPacket.IsCorrectSecret() {
-		responseConnectAck(conn, protocolPacket.UserAndPassError)
+		responseConnectAck(conn, protocol.UserAndPassError)
 		fmt.Println("客户端user和password错误")
 		conn.Close()
 		return false
@@ -137,7 +144,7 @@ func handleConnectProtocol(conn net.Conn) bool {
 	// todo
 
 	// 返回ack
-	responseConnectAck(conn, protocolPacket.ConnectAccess)
+	responseConnectAck(conn, protocol.ConnectAccess)
 	return true
 }
 

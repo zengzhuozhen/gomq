@@ -2,6 +2,7 @@ package client
 
 import (
 	"fmt"
+	"gomq/protocol"
 	"gomq/protocol/packet"
 	"log"
 	"math"
@@ -65,7 +66,7 @@ func (c *client) Connect() error {
 		return err
 	}
 
-	if connAckPacket.ConnectReturnCode != packet.ConnectAccess {
+	if connAckPacket.ConnectReturnCode != protocol.ConnectAccess {
 		log.Fatal("服务器拒绝连接，code:", connAckPacket.ConnectReturnCode)
 		conn.Close()
 	}

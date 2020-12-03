@@ -112,12 +112,15 @@ func (c *ConnectPacket) Write(w io.Writer) error {
 	return err
 }
 
+// 如果发现不支持的协议级别，服务端必须给发送一个返回码为0x01（不支持的协议级别）的CONNACK报文响应CONNECT报文，然后断开客户端的连接
+func (c *ConnectPacket) IsSuitableProtocolLevel() bool {
+	return  c.ProtocolLevel != 4
+}
+
+
 // 服务端必须判断 reserved 是否为0，不为0就要断开客户端连接
 func (c *ConnectPacket) IsReserved() bool {
-	if c.ConnectFlags%2 == 0 {
-		return true
-	}
-	return false
+	return c.ConnectFlags%2 == 0
 }
 
 func (c *ConnectPacket) IsLegalIdentifier() bool {

@@ -7,14 +7,7 @@ import (
 	"io"
 )
 
-const (
-	ConnectAccess = iota
-	UnSupportProtocolVersion
-	UnSupportClientIdentity
-	UnAvailableService
-	UserAndPassError
-	UnAuthorization
-)
+
 
 type ConnAckPacket struct {
 	FixedHeader

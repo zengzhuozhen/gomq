@@ -42,20 +42,20 @@ var PacketType = []struct {
 	out byte
 }{
 	{byte(protocol.Reserved), 0},
-	{byte(protocol.CONNECT), 1 << 4},
-	{byte(protocol.CONNACK), 1 << 5},
-	{byte(protocol.PUBLISH), 1<<4 + 1<<5},
-	{byte(protocol.PUBACK), 1 << 6},
-	{byte(protocol.PUBREC), 1<<6 + 1<<4},
-	{byte(protocol.PUBREL), 1<<6 + 1<<5},
-	{byte(protocol.PUBCOMP), 1<<6 + 1<<5 + 1<<4},
-	{byte(protocol.SUBSCRIBE), 1 << 7},
-	{byte(protocol.SUBACK), 1<<7 + 1<<4},
-	{byte(protocol.UNSUBSCRIBE), 1<<7 + 1<<5},
-	{byte(protocol.UNSUBACK), 1<<7 + 1<<5 + 1<<4},
-	{byte(protocol.PINGREQ), 1<<7 + 1<<6},
-	{byte(protocol.PINGRESP), 1<<7 + 1<<6 + 1<<4},
-	{byte(protocol.DISCONNECT), 1<<7 + 1<<6 + 1<<5},
+	{byte(protocol.CONNECT), 1 << 4},                // 2^4
+	{byte(protocol.CONNACK), 1 << 5},                // 2 ^5
+	{byte(protocol.PUBLISH), 1<<4 + 1<<5},           // 2^4 + 2^5
+	{byte(protocol.PUBACK), 1 << 6},                 // 2^6
+	{byte(protocol.PUBREC), 1<<6 + 1<<4},            // 2^6 + 2^4
+	{byte(protocol.PUBREL), 1<<6 + 1<<5},            // 2^6 + 2^5
+	{byte(protocol.PUBCOMP), 1<<6 + 1<<5 + 1<<4},    // 2^6 + 2^5 + 2^4
+	{byte(protocol.SUBSCRIBE), 1 << 7},              // 2^7
+	{byte(protocol.SUBACK), 1<<7 + 1<<4},            // 2^7 + 2^4
+	{byte(protocol.UNSUBSCRIBE), 1<<7 + 1<<5},       // 2^7 + 2^5
+	{byte(protocol.UNSUBACK), 1<<7 + 1<<5 + 1<<4},   // 2^7 + 2^5 + 2^4
+	{byte(protocol.PINGREQ), 1<<7 + 1<<6},           // 2^7 + 2^6
+	{byte(protocol.PINGRESP), 1<<7 + 1<<6 + 1<<4},   // 2^7 + 2^6 + 2^4
+	{byte(protocol.DISCONNECT), 1<<7 + 1<<6 + 1<<5}, // 2^7 + 2^6 + 2^5
 }
 
 func TestEncodePacketType(t *testing.T) {
@@ -69,15 +69,11 @@ func TestEncodePacketType(t *testing.T) {
 
 func TestDecodePacketType(t *testing.T) {
 	for i, tt := range PacketType {
-		for _,u := range []byte{1,2,4,8}{
+		for _, u := range []byte{1, 2, 4, 8} {
 			s := utils.DecodePacketType(tt.out + u) // 加上 1 ~ 3 bit 位的标识也应该正确识别
 			if s != tt.in {
 				t.Errorf("%d => %d, wanted: %d", i, int(s), int(tt.in))
 			}
 		}
-
-
 	}
 }
-
-
