@@ -50,7 +50,7 @@ func (c *client) Connect() error {
 	c.conn = conn
 	payLoad := new(packet.ConnectPacketPayLoad)
 	//todo cleanSession 暂时设置为 false
-	connectPack := packet.NewConnectPack(30, false, *payLoad)
+	connectPack := packet.NewConnectPack(30, false, payLoad)
 	connectPack.Write(conn)
 
 	var fh packet.FixedHeader

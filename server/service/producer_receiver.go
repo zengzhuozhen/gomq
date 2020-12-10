@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"gomq/common"
 	"gomq/protocol"
+	"gomq/protocol/handler"
 	protocolPacket "gomq/protocol/packet"
 	"net"
 )
@@ -13,39 +14,24 @@ type ProducerReceiver struct {
 }
 
 func NewProducerReceiver(queue *common.Queue) *ProducerReceiver {
-	return &ProducerReceiver{Queue:queue}
+	return &ProducerReceiver{Queue: queue}
 }
 
 func (p *ProducerReceiver) ProduceAndResponse(conn net.Conn, publishPacket *protocolPacket.PublishPacket) {
-	bit4 := publishPacket.TypeAndReserved - 16 - 32 // 去除 MQTT协议类型
-	var needHandleRetain bool
-	if bit4 >= 8 { //重发标志 DUP, 0 表示第一次发这个消息
-		bit4 -= 8
-	}
-	if bit4%2 == 1 { //保留标志 RETAIN ,为1 需要保存消息和服务等级
-		needHandleRetain = true
-		bit4--
-	}
-
-	switch bit4 { // 服务质量等级 QoS，左移1位越过retain
+	publishPacketHandler := handler.NewPublishPacketHandle(publishPacket)
+	publishPacketHandler.HandleAll()
+	switch publishPacketHandler.ReturnQoS() {
 	case protocol.AtMostOnce:
 		// nothing to do
-	case protocol.AtLeastOnce << 1:
+	case protocol.AtLeastOnce:
 		defer responsePubAck(conn, publishPacket.PacketIdentifier)
-	case protocol.ExactOnce << 1:
+	case protocol.ExactOnce:
 		defer responsePubRec(conn, publishPacket.PacketIdentifier)
-	case protocol.None << 1:
-		// nothing to do
-	}
-
-	if needHandleRetain {
-		protocolPacket.HandleRetain()
 	}
 	p.toQueue(publishPacket)
 }
 
-
-func (p *ProducerReceiver) toQueue(publishPacket *protocolPacket.PublishPacket){
+func (p *ProducerReceiver) toQueue(publishPacket *protocolPacket.PublishPacket) {
 	message := new(common.Message)
 	message = message.UnPack(publishPacket.Payload)
 	messageUnit := common.NewMessageUnit(publishPacket.TopicName, *message)
@@ -53,7 +39,6 @@ func (p *ProducerReceiver) toQueue(publishPacket *protocolPacket.PublishPacket){
 	p.Queue.Push(messageUnit)
 	fmt.Println("记录入队数据", message.MsgKey)
 }
-
 
 func responsePubAck(conn net.Conn, identify uint16) {
 	fmt.Println("发送puback")
@@ -82,4 +67,3 @@ func responsePubRec(conn net.Conn, identify uint16) {
 	// todo identify Pool
 	return
 }
-

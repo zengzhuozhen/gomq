@@ -17,22 +17,24 @@ const (
 	PINGREQ
 	PINGRESP
 	DISCONNECT
+)
 
+const(
 	// 自定义标识  255(byte最大值) > X > 240(MQTT协议封包最大值)
 	SYNCREQ	 byte = 250 + iota
 	SYNCACK
 	SYNCOFFSET
-
+)
+const (
 	// QoS 服务质量等级
 	AtMostOnce = iota
 	AtLeastOnce
 	ExactOnce
-	None
-
+)
 	//DUP1  重发标志 DUP
 	//QoS2  服务质量等级 QoS
 	//RETAIN3 保留标志 RETAIN
-
+const (
 	ConnectAccess = iota
 	UnSupportProtocolVersion
 	UnSupportClientIdentity

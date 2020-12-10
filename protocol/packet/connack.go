@@ -49,4 +49,3 @@ func (c *ConnAckPacket) Write(w io.Writer) error {
 	_, err = w.Write(packet.Bytes())
 	return err
 }
-

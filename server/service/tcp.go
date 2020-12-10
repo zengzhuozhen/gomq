@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 	"gomq/protocol"
+	"gomq/protocol/handler"
 	protocolPacket "gomq/protocol/packet"
 	"gomq/protocol/utils"
 	"io"
 	"log"
 	"net"
-	"reflect"
 	"time"
 )
 
@@ -97,51 +97,18 @@ func handleConnectProtocol(conn net.Conn) bool {
 		return false
 	}
 
-
-	if !connPacket.IsSuitableProtocolLevel(){
-		fmt.Println("不满足客户端要求的协议等级")
-		responseConnectAck(conn, protocol.UnSupportProtocolVersion)
-		return false
-	}
-
-	//----判断是否满足协议规范-----
-
-	if !connPacket.IsReserved() {
-		fmt.Println("客户端连接标识错误")
+	connectFlags, payLoad := connPacket.ProvisionConnectFlagsAndPayLoad()
+	connectPacketHandler := handler.NewConnectPacketHandle(&connPacket, connectFlags, payLoad)
+	err = connectPacketHandler.HandleAll()
+	if err != nil {
 		conn.Close()
+		// 判断错误类型，适时发responseAck
+		errorType := connectPacketHandler.ErrorTypeToAck()
+		if errorType != 0 {
+			responseConnectAck(conn, errorType)
+		}
 		return false
 	}
-	if reflect.DeepEqual(connPacket.TypeAndReserved, utils.EncodeString("MQTT")) {
-		fmt.Println("客户端使用的协议错误")
-		conn.Close()
-		return false
-	}
-
-	//----以下为满足报文规范的情况---
-
-	if !connPacket.IsLegalIdentifier() {
-		responseConnectAck(conn, protocol.UnSupportClientIdentity)
-		fmt.Println("客户端唯一标识错误")
-		conn.Close()
-		return false
-	}
-
-	if ! connPacket.IsAuthorizedClient() {
-		responseConnectAck(conn, protocol.UnAuthorization)
-		fmt.Println("客户端未授权")
-		conn.Close()
-		return false
-	}
-
-	if !connPacket.IsCorrectSecret() {
-		responseConnectAck(conn, protocol.UserAndPassError)
-		fmt.Println("客户端user和password错误")
-		conn.Close()
-		return false
-	}
-
-	// ------以下为处理 payLoad 里的数据
-	// todo
 
 	// 返回ack
 	responseConnectAck(conn, protocol.ConnectAccess)

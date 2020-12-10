@@ -1,17 +1,17 @@
 version: "3.5"
 services:
-  gomq:
-    container_name: gomq
-    image: gomq/gomq:v1
-    ports:
-      - "9000:9000"
-      - "8000:8000"
-    volumes:
-      - "/Volumes/gomq/log:/var/log/tempmq.log"
-    networks:
-      - mqnet
-    depends_on:
-      - etcd
+#  gomq:
+#    container_name: gomq
+#    image: gomq/gomq:v1
+#    ports:
+#      - "9000:9000"
+#      - "8000:8000"
+#    volumes:
+#      - "/Volumes/gomq/log:/var/log/tempmq.log"
+#    networks:
+#      - mqnet
+#    depends_on:
+#      - etcd
 
   etcd:
     container_name: etcd
