@@ -31,6 +31,7 @@ const (
 	AtLeastOnce
 	ExactOnce
 )
+
 	//DUP1  重发标志 DUP
 	//QoS2  服务质量等级 QoS
 	//RETAIN3 保留标志 RETAIN
@@ -42,3 +43,4 @@ const (
 	UserAndPassError
 	UnAuthorization
 )
+

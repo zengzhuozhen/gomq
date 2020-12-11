@@ -10,7 +10,7 @@ import (
 type SubscribePacket struct {
 	FixedHeader
 	PacketIdentifier uint16
-	Payload          []byte
+	Payload          []byte		// topic + QoS level
 }
 
 func NewSubscribePacket(Identifier uint16,topic []string, QoSRequire byte) SubscribePacket {

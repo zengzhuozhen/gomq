@@ -7,12 +7,16 @@ import (
 	protocolPacket "gomq/protocol/packet"
 	"gomq/protocol/utils"
 	"net"
+	"strings"
 	"sync"
 	"time"
 )
 
+type QoSForTopic map[string]byte
+
 type ConsumerReceiver struct {
 	ChanAssemble map[string][]common.MsgUnitChan
+	QoSGuarantee map[string]QoSForTopic
 	Pool         *Pool
 }
 
@@ -41,31 +45,45 @@ func (r *ConsumerReceiver) ConsumeAndResponse(ctx context.Context, conn net.Conn
 	var QoSList []byte
 	packet.PacketIdentifier, _ = utils.DecodeUint16(conn)
 	packet.FixedHeader.RemainingLength -= 2
+
+	connUid := conn.RemoteAddr().String()
+	qosForTopic := make(map[string]byte)
+
 	for packet.FixedHeader.RemainingLength > 0 {
 		topic, err := utils.DecodeString(conn)
 		if err != nil {
 			fmt.Println(err)
+			continue
 		}
 		QoS, err := utils.DecodeByte(conn)
 		if err != nil {
 			fmt.Println(err)
+			continue
 		}
+		if strings.HasSuffix(topic,"*"){
+			fmt.Println("目前服务端不支持通配符")
+			continue
+		}
+
 		TopicList = append(TopicList, topic)
 		QoSList = append(QoSList, QoS)
-		packet.RemainingLength -= 2 + len(topic) + 1
+		qosForTopic[topic] = QoS
+		packet.RemainingLength -= 2 + len(topic) + 1	// LSB + MSB + topic + qos
 	}
 
-	connUid := conn.RemoteAddr().String()
+	r.QoSGuarantee[connUid] = qosForTopic
 	r.Pool.Add(connUid, TopicList)
 	subAckPacket := protocolPacket.NewSubAckPacket(packet.PacketIdentifier, QoSList)
 	err := subAckPacket.Write(conn)
 	if err != nil {
 		fmt.Println("返回subAck失败", err)
 	}
+
 	for k := range TopicList {
 		r.ChanAssemble[connUid] = append(r.ChanAssemble[connUid], make(common.MsgUnitChan))
 		go r.listenMsgChan(ctx, k, connUid, conn)
 	}
+
 }
 
 func (r *ConsumerReceiver) listenMsgChan(ctx context.Context, k int, connUid string, conn net.Conn) {
@@ -78,6 +96,9 @@ func (r *ConsumerReceiver) listenMsgChan(ctx context.Context, k int, connUid str
 			if _, err := conn.Write(messagePacket); err != nil {
 				fmt.Println(err)
 			}
+			// todo choose send message	strategy by qos guarantee
+
+
 		case <-ctx.Done():
 			fmt.Printf("客户端{socket:'%s'}连接关闭，退出消费", connUid)
 			r.HandleQuit(connUid)

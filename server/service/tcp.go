@@ -66,6 +66,8 @@ func (l *TCP) holdConn(conn net.Conn) {
 		switch packet.(type) {
 		case *protocolPacket.PublishPacket:
 			l.ProducerReceiver.ProduceAndResponse(conn, packet.(*protocolPacket.PublishPacket))
+		case *protocolPacket.PubRelPacket:
+			l.ProducerReceiver.AcceptRelAndRespComp(conn,packet.(*protocolPacket.PubRelPacket))
 		case *protocolPacket.SubscribePacket:
 			l.ConsumerReceiver.ConsumeAndResponse(ctx, conn, packet.(*protocolPacket.SubscribePacket))
 		case *protocolPacket.UnSubscribePacket:

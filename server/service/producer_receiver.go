@@ -10,11 +10,12 @@ import (
 )
 
 type ProducerReceiver struct {
-	Queue *common.Queue
+	Queue           *common.Queue
+	tempPublishPool map[int]protocolPacket.PublishPacket
 }
 
 func NewProducerReceiver(queue *common.Queue) *ProducerReceiver {
-	return &ProducerReceiver{Queue: queue}
+	return &ProducerReceiver{Queue: queue, tempPublishPool: make(map[int]protocolPacket.PublishPacket)}
 }
 
 func (p *ProducerReceiver) ProduceAndResponse(conn net.Conn, publishPacket *protocolPacket.PublishPacket) {
@@ -22,13 +23,13 @@ func (p *ProducerReceiver) ProduceAndResponse(conn net.Conn, publishPacket *prot
 	publishPacketHandler.HandleAll()
 	switch publishPacketHandler.ReturnQoS() {
 	case protocol.AtMostOnce:
-		// nothing to do
+		p.toQueue(publishPacket) // 最多一次，直接存
 	case protocol.AtLeastOnce:
-		defer responsePubAck(conn, publishPacket.PacketIdentifier)
-	case protocol.ExactOnce:
-		defer responsePubRec(conn, publishPacket.PacketIdentifier)
+		p.toQueue(publishPacket) // 最少一次,直接存
+		p.responsePubAck(conn, publishPacket.PacketIdentifier)
+	case protocol.ExactOnce: // 精确一次，看情况存
+		p.responsePubRec(conn, publishPacket)
 	}
-	p.toQueue(publishPacket)
 }
 
 func (p *ProducerReceiver) toQueue(publishPacket *protocolPacket.PublishPacket) {
@@ -40,30 +41,26 @@ func (p *ProducerReceiver) toQueue(publishPacket *protocolPacket.PublishPacket) 
 	fmt.Println("记录入队数据", message.MsgKey)
 }
 
-func responsePubAck(conn net.Conn, identify uint16) {
+func (p *ProducerReceiver) responsePubAck(conn net.Conn, identify uint16) {
 	fmt.Println("发送puback")
 	pubAckPacket := protocolPacket.NewPubAckPacket(identify)
 	pubAckPacket.Write(conn)
 }
 
-func responsePubRec(conn net.Conn, identify uint16) {
+func (p *ProducerReceiver) responsePubRec(conn net.Conn, packet *protocolPacket.PublishPacket) {
 	fmt.Println("准备返回pubRec")
 	// PUBREC – 发布收到（QoS 2，第一步)
-	pubRecPacket := protocolPacket.NewPubRecPacket(identify)
+	pubRecPacket := protocolPacket.NewPubRecPacket(packet.PacketIdentifier)
 	pubRecPacket.Write(conn)
+	p.tempPublishPool[int(packet.PacketIdentifier)] = *packet
+}
 
-	// 等待 rel
-	var fh protocolPacket.FixedHeader
-	var pubRelPacket protocolPacket.PubRelPacket
-	if err := fh.Read(conn); err != nil {
-		fmt.Println("接收pubRel包头内容错误", err)
-	}
-	pubRelPacket.Read(conn, fh)
-
+func (p *ProducerReceiver) AcceptRelAndRespComp(conn net.Conn, packet *protocolPacket.PubRelPacket) {
+	publishPacket := p.tempPublishPool[int(packet.PacketIdentifier)]
+	p.toQueue(&publishPacket)
+	delete(p.tempPublishPool, int(packet.PacketIdentifier))		// 删除临时保存的publish包，防止重发
 	// PUBCOMP – 发布完成（QoS 2，第三步)
 	fmt.Println("准备返回pubComp")
-	pubCompPacket := protocolPacket.NewPubCompPacket(pubRelPacket.PacketIdentifier)
+	pubCompPacket := protocolPacket.NewPubCompPacket(packet.PacketIdentifier)
 	pubCompPacket.Write(conn)
-	// todo identify Pool
-	return
 }
