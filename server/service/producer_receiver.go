@@ -27,7 +27,7 @@ func (p *ProducerReceiver) ProduceAndResponse(conn net.Conn, publishPacket *prot
 	case protocol.AtLeastOnce:
 		p.toQueue(publishPacket) // 最少一次,直接存
 		p.responsePubAck(conn, publishPacket.PacketIdentifier)
-	case protocol.ExactOnce: // 精确一次，看情况存
+	case protocol.ExactOnce: // 精确一次，这里先不存
 		p.responsePubRec(conn, publishPacket)
 	}
 }

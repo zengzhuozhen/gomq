@@ -21,12 +21,16 @@ type ConsumerReceiver struct {
 }
 
 func NewConsumerReceiver(chanAssemble map[string][]common.MsgUnitChan) *ConsumerReceiver {
-	return &ConsumerReceiver{ChanAssemble: chanAssemble, Pool: &Pool{
+	return &ConsumerReceiver{
+		ChanAssemble: chanAssemble,
+		QoSGuarantee:make(map[string]QoSForTopic),
+		Pool: &Pool{
 		State:    new(sync.Map),
 		Position: make(map[string][]int64, 1024),
 		Topic:    make(map[string][]string, 1024),
-		mu:       sync.Mutex{},
-	}}
+		mu:       sync.Mutex{}},
+
+	}
 }
 
 func (r *ConsumerReceiver) HandleQuit(connUid string) {
