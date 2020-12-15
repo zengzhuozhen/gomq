@@ -20,6 +20,8 @@ type Option struct {
 	Protocol string
 	Address  string
 	Timeout  int // timeout sec
+	Username string
+	Password string
 }
 
 type client struct {
@@ -48,9 +50,8 @@ func (c *client) Connect() error {
 		return err
 	}
 	c.conn = conn
-	payLoad := new(packet.ConnectPacketPayLoad)
-	//todo cleanSession 暂时设置为 false
-	connectPack := packet.NewConnectPack(30, false, payLoad)
+	payLoad := packet.NewConnectPayLoad(fmt.Sprint(c.GetAvailableIdentity()), "", "", c.options.Username, c.options.Password)
+	connectPack := packet.NewConnectPacket(30, true, payLoad)
 	connectPack.Write(conn)
 
 	var fh packet.FixedHeader

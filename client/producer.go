@@ -12,7 +12,7 @@ import (
 )
 
 type IProducer interface {
-	Publish(mess common.MessageUnit, QoS int)
+	Publish(mess common.MessageUnit, QoS ,retain int)
 	WaitAck()
 	WaitRecAndComp()
 }
@@ -28,18 +28,18 @@ func NewProducer(opts *Option) IProducer {
 	return &Producer{client: client}
 }
 
-func (p *Producer) Publish(messageUnit common.MessageUnit, QoS int) {
+func (p *Producer) Publish(messageUnit common.MessageUnit, QoS , retain int ) {
 	err := p.client.Connect()
 	if err != nil {
 		panic("连接服务端失败")
 	}
 
-	// todo retain暂时设置为0,后期优化
 	var identity uint16
 	if QoS != protocol.AtMostOnce {
 		identity = p.client.GetAvailableIdentity()
 	}
-	publishPacket := protocolPacket.NewPublishPacket(messageUnit.Topic, messageUnit.Data, true, QoS, 0, identity)
+
+	publishPacket := protocolPacket.NewPublishPacket(messageUnit.Topic, messageUnit.Data, true, QoS, retain, identity)
 	err = publishPacket.Write(p.client.conn)
 	if err != nil {
 		log.Fatal(err.Error())
@@ -53,11 +53,11 @@ func (p *Producer) Publish(messageUnit common.MessageUnit, QoS int) {
 		// noting to do
 	case protocol.AtLeastOnce:
 		resendPacket := protocolPacket.NewPublishPacket(messageUnit.Topic, messageUnit.Data, false, QoS, 0, identity)
-		go p.overtimeAndResendPublish(ctx, resendPacket)
+		go p.overtimeResendPublish(ctx, resendPacket)
 		p.WaitAck()
 	case protocol.ExactOnce:
 		resendPacket := protocolPacket.NewPublishPacket(messageUnit.Topic, messageUnit.Data, false, QoS, 0, identity)
-		go p.overtimeAndResendPublish(ctx, resendPacket)
+		go p.overtimeResendPublish(ctx, resendPacket)
 		p.WaitRecAndComp()
 	}
 	p.client.conn.Close()
@@ -101,7 +101,7 @@ func (p *Producer) WaitRecAndComp() {
 		ctx, cancelFunc := context.WithCancel(context.Background())
 		p.cancelResendPubrelFunc = cancelFunc
 		p.client.IdentityPool[int(packet.(*protocolPacket.PubRecPacket).PacketIdentifier)] = false
-		go p.overtimeAndResendPubrel(ctx, pubRelPacket)
+		go p.overtimeResendPubrel(ctx, pubRelPacket)
 
 	case byte(protocol.PUBCOMP):
 		packet = &protocolPacket.PubCompPacket{}
@@ -120,7 +120,7 @@ func (p *Producer) WaitRecAndComp() {
 }
 
 // 超时重发Publish包
-func (p *Producer) overtimeAndResendPublish(ctx context.Context, publishPacket protocolPacket.PublishPacket) {
+func (p *Producer) overtimeResendPublish(ctx context.Context, publishPacket protocolPacket.PublishPacket) {
 	ticker := time.NewTicker(3 * time.Second)
 	for {
 		select {
@@ -140,7 +140,7 @@ func (p *Producer) overtimeAndResendPublish(ctx context.Context, publishPacket p
 }
 
 // 超时重发Pubrel包
-func (p *Producer) overtimeAndResendPubrel(ctx context.Context,pubrelPacket protocolPacket.PubRelPacket){
+func (p *Producer) overtimeResendPubrel(ctx context.Context,pubrelPacket protocolPacket.PubRelPacket){
 	ticker := time.NewTicker(3 * time.Second)
 	for {
 		select {

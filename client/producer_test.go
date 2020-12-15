@@ -18,7 +18,7 @@ func BenchmarkProducer_Publish(b *testing.B) {
 				Body:   "hello world A ",
 			},
 		}
-		producer.Publish(mess, 0)
+		producer.Publish(mess, 0, 0)
 	}
 }
 
@@ -36,7 +36,7 @@ func BenchmarkProducer_Publish_Parallel(b *testing.B) {
 					Body:   "hello world A ",
 				},
 			}
-			producer.Publish(mess, 0)
+			producer.Publish(mess, 0, 0)
 		}
 	})
 }
@@ -53,7 +53,7 @@ func TestProducer_Publish_Topic_A(t *testing.T) {
 			Body:   "hello world A ",
 		},
 	}
-	producer.Publish(mess, 0)
+	producer.Publish(mess, 0, 1)
 }
 
 func TestProducer_Publish_Topic_B(t *testing.T) {
@@ -68,7 +68,7 @@ func TestProducer_Publish_Topic_B(t *testing.T) {
 			Body:   "hello world B ",
 		},
 	}
-	producer.Publish(mess, 0)
+	producer.Publish(mess, 0, 0)
 }
 
 func TestProducer_Publish_Topic_C(t *testing.T) {
@@ -83,5 +83,5 @@ func TestProducer_Publish_Topic_C(t *testing.T) {
 			Body:   "hello world C",
 		},
 	}
-	producer.Publish(mess, 2)
+	producer.Publish(mess, 2, 0)
 }

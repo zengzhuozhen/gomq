@@ -27,10 +27,6 @@ const (
 	Member
 )
 
-const (
-	StoreByMem = iota
-	StoreByFile
-)
 
 type option struct {
 	identity       int

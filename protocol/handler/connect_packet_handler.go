@@ -1,11 +1,14 @@
 package handler
 
 import (
+	"context"
 	"fmt"
+	"go.etcd.io/etcd/clientv3"
 	"gomq/protocol"
 	"gomq/protocol/packet"
 	"gomq/protocol/utils"
 	"reflect"
+	"time"
 )
 
 type ConnectPacketHandler interface {
@@ -31,13 +34,12 @@ type ConnectPacketHandler interface {
 }
 
 type ConnectPacketHandle struct {
+	etcdClient     *clientv3.Client
 	connectPacket  *packet.ConnectPacket
 	connectFlags   *packet.ConnectFlags
 	connectPayLoad *packet.ConnectPacketPayLoad
 	errorTypeToAck byte
 }
-
-
 
 func (handler *ConnectPacketHandle) HandleAll() error {
 	var err error
@@ -78,15 +80,15 @@ func (handler *ConnectPacketHandle) HandleProtocolLevel() {
 }
 
 func (handler *ConnectPacketHandle) HandleConnectFlag() {
-	if handler.connectPacket.IsReserved() {
+	if !handler.connectPacket.IsReserved() {
 		panic("CONNECT控制报文的保留标志位必须为0")
 	}
-	handler.handleCleanSession()
-	handler.handleWillFlag()
-	handler.handleWillQos()
-	handler.handleWillRetain()
-	handler.handleUserNameFlag()
-	handler.handlePasswordFlag()
+	//handler.handleCleanSession()
+	//handler.handleWillFlag()
+	//handler.handleWillQos()
+	//handler.handleWillRetain()
+	//handler.handleUserNameFlag()
+	//handler.handlePasswordFlag()
 }
 
 func (handler *ConnectPacketHandle) handleCleanSession() {
@@ -118,12 +120,12 @@ func (handler *ConnectPacketHandle) HandleKeepAlive() {
 }
 
 func (handler *ConnectPacketHandle) HandleClientIdentifier() {
-	if !handler.connectPacket.IsLegalIdentifier() {
+	if !handler.connectPayLoad.IsLegalIdentifier() {
 		handler.errorTypeToAck = protocol.UnSupportClientIdentity
 		panic("客户端唯一标识错误")
 	}
 
-	if !handler.connectPacket.IsAuthorizedClient(){
+	if !handler.connectPayLoad.IsAuthorizedClient() {
 		handler.errorTypeToAck = protocol.UnAuthorization
 		panic("客户端未授权")
 	}
@@ -138,7 +140,12 @@ func (handler *ConnectPacketHandle) HandleWillMessage() {
 }
 
 func (handler *ConnectPacketHandle) HandleUserNameAndPassword() {
-	if !handler.connectPacket.IsCorrectSecret(){
+	var username, password string
+	getResp, _ := handler.etcdClient.KV.Get(context.TODO(), username)
+	username = string(getResp.Kvs[0].Key)
+	password = string(getResp.Kvs[0].Value)
+
+	if !handler.connectPayLoad.IsCorrectSecret(username, password) {
 		handler.errorTypeToAck = protocol.UserAndPassError
 		panic("客户端user和password错误")
 	}
@@ -148,9 +155,14 @@ func (handler *ConnectPacketHandle) ErrorTypeToAck() byte {
 	return handler.errorTypeToAck
 }
 
-
-func NewConnectPacketHandle(connectPacket *packet.ConnectPacket,connectFlags *packet.ConnectFlags, payLoad *packet.ConnectPacketPayLoad) ConnectPacketHandler {
+func NewConnectPacketHandle(connectPacket *packet.ConnectPacket, connectFlags *packet.ConnectFlags, payLoad *packet.ConnectPacketPayLoad) ConnectPacketHandler {
+	config := clientv3.Config{
+		Endpoints:   []string{":2379"},
+		DialTimeout: 10 * time.Second,
+	}
+	etcdClient, _ := clientv3.New(config)
 	return &ConnectPacketHandle{
+		etcdClient:     etcdClient,
 		connectPacket:  connectPacket,
 		connectFlags:   connectFlags,
 		connectPayLoad: payLoad,

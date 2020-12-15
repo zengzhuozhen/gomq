@@ -7,13 +7,16 @@ import (
 
 func TestQueue_PushAndPop(t *testing.T) {
 	queue := NewQueue(false)
-	msgUnit := NewMessageUnit("a",Message{
+	msgUnit := NewMessageUnit("A",1,Message{
 		MsgId:  0,
 		MsgKey: "aa",
-		Body:   "aaaaaa",
+		Body:   "bb",
 	})
 
 	queue.Push(msgUnit)
+	queue.Push(msgUnit)
+	queue.Push(msgUnit)
+
 	retMsgUnit,err  := queue.Pop(msgUnit.Topic,0)
 
 	if err != nil{

@@ -32,6 +32,7 @@ func NewTCP(address string, PR *ProducerReceiver, CR *ConsumerReceiver, MR *Memb
 }
 
 func (l *TCP) Start() {
+	go l.startConnLoop()
 	listen, err := net.Listen(l.protocol, l.address)
 	if err != nil {
 		log.Fatal(err.Error())
@@ -47,6 +48,48 @@ func (l *TCP) Start() {
 		if handleConnectProtocol(conn) == true {
 			go l.holdConn(conn)
 		}
+	}
+}
+
+func (l *TCP) startConnLoop() error {
+	fmt.Println("开启监听连接循环")
+	for {
+		activeConn := l.ConsumerReceiver.Pool.ForeachActiveConn()
+		if len(activeConn) == 0 {
+			time.Sleep(100 * time.Millisecond)
+			continue
+		}
+		for _, uid := range activeConn {
+			topicList := l.ConsumerReceiver.Pool.Topic[uid]
+			for k, topic := range topicList {
+				l.popRetainQueue(uid, topic, k)
+				l.popQueue(uid, topic, k)
+			}
+		}
+	}
+}
+
+func (l *TCP) popRetainQueue(uid, topic string, k int) {
+	position := l.ConsumerReceiver.Pool.Position[uid][k]
+	if position == 0 { // 没有偏移,即是新来的, 直接读retaineQueue，然后更新到最新偏移
+		fmt.Println(l.ProducerReceiver.Queue.Local[topic])
+		for _, msg := range l.ProducerReceiver.RetainQueue.ReadAll(topic) {
+			l.ConsumerReceiver.ChanAssemble[uid][k] <- msg
+		}
+		maxPosition := len(l.ProducerReceiver.Queue.Local[topic])
+		fmt.Println("maxPosition:", maxPosition)
+		l.ConsumerReceiver.Pool.UpdatePositionTo(uid, topic, maxPosition)
+	}
+}
+
+func (l *TCP) popQueue(uid, topic string, k int) {
+	position := l.ConsumerReceiver.Pool.Position[uid][k]
+	// 正常处理
+	if msg, err := l.ProducerReceiver.Queue.Pop(topic, position); err == nil {
+		l.ConsumerReceiver.Pool.UpdatePosition(uid, topic)
+		l.ConsumerReceiver.ChanAssemble[uid][k] <- msg
+	} else {
+		time.Sleep(100 * time.Millisecond)
 	}
 }
 
@@ -67,7 +110,7 @@ func (l *TCP) holdConn(conn net.Conn) {
 		case *protocolPacket.PublishPacket:
 			l.ProducerReceiver.ProduceAndResponse(conn, packet.(*protocolPacket.PublishPacket))
 		case *protocolPacket.PubRelPacket:
-			l.ProducerReceiver.AcceptRelAndRespComp(conn,packet.(*protocolPacket.PubRelPacket))
+			l.ProducerReceiver.AcceptRelAndRespComp(conn, packet.(*protocolPacket.PubRelPacket))
 		case *protocolPacket.SubscribePacket:
 			l.ConsumerReceiver.ConsumeAndResponse(ctx, conn, packet.(*protocolPacket.SubscribePacket))
 		case *protocolPacket.UnSubscribePacket:

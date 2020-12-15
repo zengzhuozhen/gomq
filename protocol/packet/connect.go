@@ -6,6 +6,7 @@ import (
 	"gomq/protocol"
 	"gomq/protocol/utils"
 	"io"
+	"strings"
 )
 
 type ConnectPacket struct {
@@ -18,7 +19,7 @@ type ConnectPacket struct {
 }
 
 type ConnectFlags struct {
-	CleanSession bool
+	CleanSession bool	// todo 为true,则每次连接都是新的连接，为fasle，连接后需要处理旧的数据(qos相关)
 	WillFlag     bool
 	WillQos      bool
 	WillRetain   bool
@@ -34,7 +35,17 @@ type ConnectPacketPayLoad struct {
 	password    string
 }
 
-func NewConnectPack(keepAlive uint16, cleanSession bool, payLoad *ConnectPacketPayLoad) ConnectPacket {
+func NewConnectPayLoad(identity,willTopic,willMessage,userName,password string) *ConnectPacketPayLoad {
+	return &ConnectPacketPayLoad{
+		identifier:  identity,
+		willTopic:   willTopic,
+		willMessage: willMessage,
+		userName:    userName,
+		password:    password,
+	}
+}
+
+func NewConnectPacket(keepAlive uint16, cleanSession bool, payLoad *ConnectPacketPayLoad) ConnectPacket {
 	connectFlag, payLoadData := payLoad.encode(cleanSession)
 	return ConnectPacket{
 		FixedHeader: FixedHeader{
@@ -99,28 +110,32 @@ func (c *ConnectPacket) IsReserved() bool {
 	return c.ConnectFlags%2 == 0
 }
 
-func (c *ConnectPacket) IsLegalIdentifier() bool {
-	_ = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-	// todo identity 合法性验证
+func (c *ConnectPacketPayLoad) IsLegalIdentifier() bool {
+	mode := "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	for i := range c.identifier {
+		if !strings.Contains(mode, string(i)) {
+			return false
+		}
+	}
 	return true
 }
 
-func (c *ConnectPacket) IsAuthorizedClient() bool {
+func (c *ConnectPacketPayLoad) IsAuthorizedClient() bool {
 	//todo 验证客户端是否之前授权了
 	return true
 }
 
-func (c *ConnectPacket) IsCorrectSecret() bool {
-	//todo key 和 secret 验证
-	return true
+func (c *ConnectPacketPayLoad) IsCorrectSecret(username string, password string) bool {
+	return username == c.userName && password == c.password
 }
+
 // 根据 connectPacket包提取 connectFlags 和 payLoad 结构
 func (c *ConnectPacket) ProvisionConnectFlagsAndPayLoad() (*ConnectFlags, *ConnectPacketPayLoad) {
 	connectFlags := new(ConnectFlags)
 	connectFlags.decode(c.ConnectFlags)
 	payLoad := new(ConnectPacketPayLoad)
 	payLoad.decode(c.payLoad, *connectFlags)
-	return connectFlags,payLoad
+	return connectFlags, payLoad
 }
 
 // todo 清理会话 Clean Session 	位置：连接标志字节的第1位     +1

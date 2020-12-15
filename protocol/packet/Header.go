@@ -11,9 +11,9 @@ type FixedHeader struct {
 	RemainingLength int  // 剩余长度 ,最大4个字节
 }
 
-func (f *FixedHeader)Read(r io.Reader) error {
+func (f *FixedHeader) Read(r io.Reader) error {
 	b := make([]byte, 1)
-	if _, err := io.ReadFull(r, b);err != nil {
+	if _, err := io.ReadFull(r, b); err != nil {
 		return err
 	}
 	return f.UnPack(b[0], r) //
@@ -32,14 +32,14 @@ func (f *FixedHeader) UnPack(byte1 byte, r io.Reader) (err error) {
 	return err
 }
 
-func (f *FixedHeader) QoS() int {
-	return int((f.TypeAndReserved>>1)&0x03)
+func (f *FixedHeader) QoS() byte {
+	return (f.TypeAndReserved >> 1) & 0x03
 }
 
 func (f *FixedHeader) Dup() bool {
 	return (f.TypeAndReserved>>3)&0x01 > 0
 }
 
-func (f *FixedHeader) Retain() bool{
-	return  f.TypeAndReserved&0x01 > 0
+func (f *FixedHeader) Retain() bool {
+	return f.TypeAndReserved&0x01 > 0
 }

@@ -178,3 +178,14 @@ func (p *Pool) UpdatePosition(uid, topic string) {
 	}
 	p.mu.Unlock()
 }
+
+func (p *Pool) UpdatePositionTo(uid, topic string, to int) {
+	p.mu.Lock()
+	for k, v := range p.Topic[uid] {
+		if topic == v {
+			p.Position[uid][k] = int64(to)
+			break
+		}
+	}
+	p.mu.Unlock()
+}

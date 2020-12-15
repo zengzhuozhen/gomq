@@ -63,6 +63,8 @@ func defaultOpts() *client.Option {
 		Protocol: "tcp",
 		Address:  connect,
 		Timeout:  3,
+		Username: "zzz",
+		Password: "123456",
 	}
 }
 

@@ -15,14 +15,13 @@ func (m *Message) Pack() []byte {
 }
 
 func (m *Message) UnPack(b []byte) *Message {
-	return  utils.BytesToStruct(b, &Message{}).(*Message)
+	return utils.BytesToStruct(b, &Message{}).(*Message)
 }
-
-
 
 // 消息单元
 type MessageUnit struct {
 	Topic string
+	QoS   byte
 	Data  Message
 }
 
@@ -31,20 +30,15 @@ func (m *MessageUnit) Pack() []byte {
 }
 
 func (m *MessageUnit) UnPack(b []byte) *MessageUnit {
-	return  utils.BytesToStruct(b, &MessageUnit{}).(*MessageUnit)
+	return utils.BytesToStruct(b, &MessageUnit{}).(*MessageUnit)
 }
 
 type MsgUnitChan chan MessageUnit
 
-
-func NewMessageUnit(topic string,data Message) MessageUnit {
+func NewMessageUnit(topic string, QoS byte, data Message) MessageUnit {
 	return MessageUnit{
 		Topic: topic,
+		QoS:   QoS,
 		Data:  data,
 	}
 }
-
-
-
-
-
