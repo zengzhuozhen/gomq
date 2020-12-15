@@ -7,21 +7,33 @@ import (
 var (
 	topic   string
 	connect string
+	qos     int
+	retain  int
 )
 
 func Flags() []cli.Flag {
 	return []cli.Flag{
 		&cli.StringFlag{
 			Name:        "topic",
-			Aliases:     []string{"t"},
 			Usage:       "the topic you care",
 			Destination: &topic,
 		},
 		&cli.StringFlag{
 			Name:        "connect",
-			Aliases:     []string{"c"},
 			Usage:       "connect the server broker",
 			Destination: &connect,
+		},
+		&cli.IntFlag{
+			Name:        "qos",
+			Usage:       "set the message qos",
+			Value:       0,
+			Destination: &qos,
+		},
+		&cli.IntFlag{
+			Name:        "retain",
+			Usage:       "set the message retain",
+			Value:       0,
+			Destination: &retain,
 		},
 	}
 }

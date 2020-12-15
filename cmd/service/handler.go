@@ -21,7 +21,7 @@ func PublishMessage(c *cli.Context) error {
 			Body:   body,
 		},
 	}
-	producer.Publish(message, 0)
+	producer.Publish(message, qos,retain)
 	fmt.Printf("publish a message %s to %s \n", body, topic)
 	return nil
 }
@@ -49,7 +49,6 @@ func ListMessage(context *cli.Context) error {
 
 
 func GetVersion(context *cli.Context) error {
-
 	resp := common.HttpGet("http://127.0.0.1:8000/version")
 	versionDo := new(do.VersionDo)
 	_ = json.Unmarshal([]byte(resp),versionDo)

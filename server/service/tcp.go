@@ -31,9 +31,9 @@ func NewTCP(address string, PR *ProducerReceiver, CR *ConsumerReceiver, MR *Memb
 	}
 }
 
-func (l *TCP) Start() {
-	go l.startConnLoop()
-	listen, err := net.Listen(l.protocol, l.address)
+func (tcp *TCP) Start() {
+	go tcp.startConnLoop()
+	listen, err := net.Listen(tcp.protocol, tcp.address)
 	if err != nil {
 		log.Fatal(err.Error())
 		return
@@ -46,54 +46,54 @@ func (l *TCP) Start() {
 			return
 		}
 		if handleConnectProtocol(conn) == true {
-			go l.holdConn(conn)
+			go tcp.holdConn(conn)
 		}
 	}
 }
 
-func (l *TCP) startConnLoop() error {
+func (tcp *TCP) startConnLoop() error {
 	fmt.Println("开启监听连接循环")
 	for {
-		activeConn := l.ConsumerReceiver.Pool.ForeachActiveConn()
+		activeConn := tcp.ConsumerReceiver.Pool.ForeachActiveConn()
 		if len(activeConn) == 0 {
 			time.Sleep(100 * time.Millisecond)
 			continue
 		}
 		for _, uid := range activeConn {
-			topicList := l.ConsumerReceiver.Pool.Topic[uid]
+			topicList := tcp.ConsumerReceiver.Pool.Topic[uid]
 			for k, topic := range topicList {
-				l.popRetainQueue(uid, topic, k)
-				l.popQueue(uid, topic, k)
+				tcp.popRetainQueue(uid, topic, k)
+				tcp.popQueue(uid, topic, k)
 			}
 		}
 	}
 }
 
-func (l *TCP) popRetainQueue(uid, topic string, k int) {
-	position := l.ConsumerReceiver.Pool.Position[uid][k]
+func (tcp *TCP) popRetainQueue(uid, topic string, k int) {
+	position := tcp.ConsumerReceiver.Pool.Position[uid][k]
 	if position == 0 { // 没有偏移,即是新来的, 直接读retaineQueue，然后更新到最新偏移
-		fmt.Println(l.ProducerReceiver.Queue.Local[topic])
-		for _, msg := range l.ProducerReceiver.RetainQueue.ReadAll(topic) {
-			l.ConsumerReceiver.ChanAssemble[uid][k] <- msg
+		fmt.Println(tcp.ProducerReceiver.Queue.Local[topic])
+		for _, msg := range tcp.ProducerReceiver.RetainQueue.ReadAll(topic) {
+			tcp.ConsumerReceiver.ChanAssemble[uid][k] <- msg
 		}
-		maxPosition := len(l.ProducerReceiver.Queue.Local[topic])
-		fmt.Println("maxPosition:", maxPosition)
-		l.ConsumerReceiver.Pool.UpdatePositionTo(uid, topic, maxPosition)
+		maxPosition := len(tcp.ProducerReceiver.Queue.Local[topic])
+		// 更新到最新的偏移
+		tcp.ConsumerReceiver.Pool.UpdatePositionTo(uid, topic, maxPosition)
 	}
 }
 
-func (l *TCP) popQueue(uid, topic string, k int) {
-	position := l.ConsumerReceiver.Pool.Position[uid][k]
+func (tcp *TCP) popQueue(uid, topic string, k int) {
+	position := tcp.ConsumerReceiver.Pool.Position[uid][k]
 	// 正常处理
-	if msg, err := l.ProducerReceiver.Queue.Pop(topic, position); err == nil {
-		l.ConsumerReceiver.Pool.UpdatePosition(uid, topic)
-		l.ConsumerReceiver.ChanAssemble[uid][k] <- msg
+	if msg, err := tcp.ProducerReceiver.Queue.Pop(topic, position); err == nil {
+		tcp.ConsumerReceiver.Pool.UpdatePosition(uid, topic)
+		tcp.ConsumerReceiver.ChanAssemble[uid][k] <- msg
 	} else {
 		time.Sleep(100 * time.Millisecond)
 	}
 }
 
-func (l *TCP) holdConn(conn net.Conn) {
+func (tcp *TCP) holdConn(conn net.Conn) {
 	// 如果没有可读数据，也就是读 buffer 为空，则阻塞
 	ctx, cancel := context.WithCancel(context.Background())
 	_ = conn.SetDeadline(time.Now().Add(10 * time.Second))
@@ -108,19 +108,19 @@ func (l *TCP) holdConn(conn net.Conn) {
 
 		switch packet.(type) {
 		case *protocolPacket.PublishPacket:
-			l.ProducerReceiver.ProduceAndResponse(conn, packet.(*protocolPacket.PublishPacket))
+			tcp.ProducerReceiver.ProduceAndResponse(conn, packet.(*protocolPacket.PublishPacket))
 		case *protocolPacket.PubRelPacket:
-			l.ProducerReceiver.AcceptRelAndRespComp(conn, packet.(*protocolPacket.PubRelPacket))
+			tcp.ProducerReceiver.AcceptRelAndRespComp(conn, packet.(*protocolPacket.PubRelPacket))
 		case *protocolPacket.SubscribePacket:
-			l.ConsumerReceiver.ConsumeAndResponse(ctx, conn, packet.(*protocolPacket.SubscribePacket))
+			tcp.ConsumerReceiver.ConsumeAndResponse(ctx, conn, packet.(*protocolPacket.SubscribePacket))
 		case *protocolPacket.UnSubscribePacket:
-			l.ConsumerReceiver.CloseConsumer(conn, packet.(*protocolPacket.UnSubscribePacket))
+			tcp.ConsumerReceiver.CloseConsumer(conn, packet.(*protocolPacket.UnSubscribePacket))
 		case *protocolPacket.PingReqPacket:
-			l.ConsumerReceiver.Pong(conn)
+			tcp.ConsumerReceiver.Pong(conn)
 		case *protocolPacket.SyncReqPacket:
-			l.MemberReceiver.RegisterSyncAndResponse(conn, packet.(*protocolPacket.SyncReqPacket))
+			tcp.MemberReceiver.RegisterSyncAndResponse(conn, packet.(*protocolPacket.SyncReqPacket))
 		case *protocolPacket.SyncOffsetPacket:
-			l.MemberReceiver.UpdateSyncOffset(conn, packet.(*protocolPacket.SyncOffsetPacket))
+			tcp.MemberReceiver.UpdateSyncOffset(conn, packet.(*protocolPacket.SyncOffsetPacket))
 		case *protocolPacket.DisConnectPacket:
 			cancel()
 			conn.Close()
