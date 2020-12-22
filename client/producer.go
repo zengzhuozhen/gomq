@@ -12,15 +12,15 @@ import (
 )
 
 type IProducer interface {
-	Publish(mess common.MessageUnit, QoS ,retain int)
+	Publish(mess common.MessageUnit, QoS, retain int)
 	WaitAck()
 	WaitRecAndComp()
 }
 
 type Producer struct {
-	client *client
+	client                  *client
 	cancelResendPublishFunc context.CancelFunc
-	cancelResendPubrelFunc context.CancelFunc
+	cancelResendPubrelFunc  context.CancelFunc
 }
 
 func NewProducer(opts *Option) IProducer {
@@ -28,7 +28,7 @@ func NewProducer(opts *Option) IProducer {
 	return &Producer{client: client}
 }
 
-func (p *Producer) Publish(messageUnit common.MessageUnit, QoS , retain int ) {
+func (p *Producer) Publish(messageUnit common.MessageUnit, QoS, retain int) {
 	err := p.client.Connect()
 	if err != nil {
 		panic("连接服务端失败")
@@ -83,39 +83,37 @@ func (p *Producer) WaitRecAndComp() {
 	//等待 rec
 	var fh protocolPacket.FixedHeader
 
-	if err := fh.Read(p.client.conn); err != nil {
-		fmt.Println("接收数据包头内容错误", err)
-	}
-	var packet protocolPacket.ControlPacket
-
-	switch utils.DecodePacketType(fh.TypeAndReserved) {
-	case byte(protocol.PUBREC):
-		packet = &protocolPacket.PubRecPacket{}
-		_ = packet.ReadHeadOnly(p.client.conn, fh)
-		p.client.IdentityPool[int(packet.(*protocolPacket.PubRecPacket).PacketIdentifier)] = true
-		// PUBREL – 发布释放（QoS 2，第二步)
-		pubRelPacket := protocolPacket.NewPubRelPacket(packet.(*protocolPacket.PubRecPacket).PacketIdentifier)
-		_ = pubRelPacket.Write(p.client.conn)
-		p.cancelResendPublishFunc() // 不再发布PUBLISH
-		// 重发PUBREL逻辑
-		ctx, cancelFunc := context.WithCancel(context.Background())
-		p.cancelResendPubrelFunc = cancelFunc
-		p.client.IdentityPool[int(packet.(*protocolPacket.PubRecPacket).PacketIdentifier)] = false
-		go p.overtimeResendPubrel(ctx, pubRelPacket)
-
-	case byte(protocol.PUBCOMP):
-		packet = &protocolPacket.PubCompPacket{}
-		_ = packet.Read(p.client.conn, fh)
-		_ = packet.ReadHeadOnly(p.client.conn, fh)
-		var pubCompPacket protocolPacket.PubCompPacket
-		fh = *new(protocolPacket.FixedHeader)
+	for {
 		if err := fh.Read(p.client.conn); err != nil {
-			fmt.Println("接收pubComp包头内容错误", err)
+			fmt.Println("接收数据包头内容错误", err)
 		}
-		_ = pubCompPacket.Read(p.client.conn, fh)
-		fmt.Println("收到comp,完成publish")
-		p.cancelResendPubrelFunc()
-		p.client.IdentityPool[int(packet.(*protocolPacket.PubCompPacket).PacketIdentifier)] = true
+		var packet protocolPacket.ControlPacket
+
+		switch utils.DecodePacketType(fh.TypeAndReserved) {
+		case byte(protocol.PUBREC):
+			packet = &protocolPacket.PubRecPacket{}
+			_ = packet.Read(p.client.conn, fh)
+			p.client.IdentityPool[int(packet.(*protocolPacket.PubRecPacket).PacketIdentifier)] = true
+			// PUBREL – 发布释放（QoS 2，第二步)
+			pubRelPacket := protocolPacket.NewPubRelPacket(packet.(*protocolPacket.PubRecPacket).PacketIdentifier)
+			_ = pubRelPacket.Write(p.client.conn)
+
+			fmt.Println("读到pubrec,发送pubrel")
+			p.cancelResendPublishFunc() // 不再发布PUBLISH
+			// 重发PUBREL逻辑
+			ctx, cancelFunc := context.WithCancel(context.Background())
+			p.cancelResendPubrelFunc = cancelFunc
+			p.client.IdentityPool[int(packet.(*protocolPacket.PubRecPacket).PacketIdentifier)] = false
+			go p.overtimeResendPubrel(ctx, pubRelPacket)
+
+		case byte(protocol.PUBCOMP):
+			packet = &protocolPacket.PubCompPacket{}
+			_ = packet.Read(p.client.conn, fh)
+			fmt.Println("收到comp,完成publish")
+			p.cancelResendPubrelFunc()
+			p.client.IdentityPool[int(packet.(*protocolPacket.PubCompPacket).PacketIdentifier)] = true
+			return
+		}
 	}
 }
 
@@ -140,7 +138,7 @@ func (p *Producer) overtimeResendPublish(ctx context.Context, publishPacket prot
 }
 
 // 超时重发Pubrel包
-func (p *Producer) overtimeResendPubrel(ctx context.Context,pubrelPacket protocolPacket.PubRelPacket){
+func (p *Producer) overtimeResendPubrel(ctx context.Context, pubrelPacket protocolPacket.PubRelPacket) {
 	ticker := time.NewTicker(3 * time.Second)
 	for {
 		select {

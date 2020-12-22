@@ -193,6 +193,9 @@ func ReadPacket(r io.Reader) (protocolPacket.ControlPacket, error) {
 	case byte(protocol.PUBLISH):
 		packet = &protocolPacket.PublishPacket{}
 		err = packet.Read(r, fh)
+	case byte(protocol.PUBREL):
+		packet = &protocolPacket.PubRelPacket{}
+		err = packet.Read(r,fh)
 	case byte(protocol.SUBSCRIBE):
 		packet = &protocolPacket.SubscribePacket{}
 		err = packet.ReadHeadOnly(r, fh) // 只读头部，剩下的具体业务里面处理

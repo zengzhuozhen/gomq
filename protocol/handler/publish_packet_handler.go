@@ -48,9 +48,14 @@ func (handler *PublishPacketHandle) HandleDup() {
 //如果服务端收到一条保留（RETAIN）标志为1的QoS 0消息，它必须丢弃之前为那个主题保留的任何消息。
 //它应该将这个新的QoS 0消息当作那个主题的新保留消息，但是任何时候都可以选择丢弃它 — 如果这种情况发生了，那个主题将没有保留消息 [MQTT-3.3.1-7]。
 func (handler *PublishPacketHandle) HandleRetain(retainQueue *common.RetainQueue) {
-	if handler.publishPacket.Retain() == false && handler.publishPacket.QoS() == 0 {
+	if handler.publishPacket.Retain() == true && handler.publishPacket.QoS() == 0 {
 		// 丢弃之前保留的主题信息
 		delete(retainQueue.Local, handler.publishPacket.TopicName)
+		// 将该消息作为最新的保留消息
+		message := new(common.Message)
+		message = message.UnPack(handler.publishPacket.Payload)
+		messageUnit := common.NewMessageUnit(handler.publishPacket.TopicName, handler.publishPacket.QoS(), *message)
+		retainQueue.Local[handler.publishPacket.TopicName] = []common.MessageUnit{messageUnit}
 	}
 }
 

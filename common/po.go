@@ -11,5 +11,9 @@ type ProducerWaitingFor struct {
 	Comp list.List			// 已接收，还没有comp的消息 (QoS-2)
 }
 
+type ConsumerWaitingFor struct {
+	SubAck list.List		// 已订阅，还没有ack的消息
+	UnSubAck list.List		// 已取消定远，还没有ack的消息
+}
 
 

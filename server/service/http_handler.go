@@ -7,6 +7,7 @@ import (
 	"gomq/common"
 	"gomq/protocol/packet"
 	"net/http"
+	"strconv"
 )
 
 type Handler struct {
@@ -24,7 +25,7 @@ func (h *Handler) Version(writer http.ResponseWriter, request *http.Request) {
 }
 
 func (h *Handler) Messages(writer http.ResponseWriter, request *http.Request) {
-	vars := request.URL.Query();
+	vars := request.URL.Query()
 	topicName := vars.Get("topic")
 	fmt.Println(topicName)
 	listMessageDo := new(do.MessagesDo)
@@ -40,18 +41,20 @@ func (h *Handler) Messages(writer http.ResponseWriter, request *http.Request) {
 }
 
 func (h *Handler) Publish(writer http.ResponseWriter, request *http.Request) {
-	vars := request.URL.Query();
+	vars := request.URL.Query()
 	topicName := vars.Get("topic")
 	body := vars.Get("body")
+	qos, _ := strconv.Atoi(vars.Get("qos"))
+	retain, _ := strconv.Atoi(vars.Get("retain"))
 
 	message := common.Message{
 		MsgId:  0,
 		MsgKey: "",
 		Body:   body,
 	}
-	publishPacket := packet.NewPublishPacket(topicName,message,true, 0, 0, 0)
+	publishPacket := packet.NewPublishPacket(topicName, message, true, qos, retain, 0)
 	h.ProducerReceiver.toQueue(&publishPacket)
-	fmt.Println(topicName,body)
+	fmt.Println(topicName, body)
 
 	writer.Write([]byte("ok"))
 }
