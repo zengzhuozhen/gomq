@@ -53,7 +53,7 @@ func TestProducer_Publish_Topic_A(t *testing.T) {
 			Body:   "hello world A ",
 		},
 	}
-	producer.Publish(mess, 0, 0)
+	producer.Publish(mess, 1, 1)
 }
 
 func TestProducer_Publish_Topic_B(t *testing.T) {
@@ -68,7 +68,7 @@ func TestProducer_Publish_Topic_B(t *testing.T) {
 			Body:   "hello world B ",
 		},
 	}
-	producer.Publish(mess, 0, 0)
+	producer.Publish(mess, 1, 1)
 }
 
 func TestProducer_Publish_Topic_C(t *testing.T) {

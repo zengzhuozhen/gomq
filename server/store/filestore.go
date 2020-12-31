@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"fmt"
 	"gomq/common"
-	"io"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -35,19 +34,17 @@ func (fs *filestore) Open(topic string) {
 	defer fs.locker.Unlock()
 	if fs.isOpen[topic] == false {
 		logName := fmt.Sprintf("%s%s.log", fs.dirname, topic)
-		file, err := os.OpenFile(logName, os.O_WRONLY|os.O_APPEND, 0666)
-		if err != nil && os.IsNotExist(err) {
-			file, err = os.Create(logName)
-		}
+		file, err := os.OpenFile(logName, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0666)
 		if err != nil {
 			panic(err.Error())
 		}
 		fs.files[topic] = file
+		fs.isOpen[topic] = true
 	}
 }
 
 func (fs *filestore) Append(item common.MessageUnit) {
-	data := item.Data.Pack()
+	data := item.Pack()
 	data = append(data, []byte("\n")...)
 	write := bufio.NewWriter(fs.files[item.Topic])
 	_, err := write.Write(data)
@@ -67,17 +64,20 @@ func (fs *filestore) Reset(string) {
 
 func (fs *filestore) ReadAll(topic string) []common.MessageUnit {
 	var msgList []common.MessageUnit
-	if filePtr := fs.files[topic]; filePtr != nil {
-		bytes, err := ioutil.ReadAll(filePtr)
-		if err != nil {
-			return msgList
-		}
-		byteList := strings.Split(string(bytes), "\n")
-		for _, byteItem := range byteList {
-			msg := new(common.MessageUnit)
-			msgList = append(msgList, *msg.UnPack([]byte(byteItem)))
-		}
+	logName := fmt.Sprintf("%s%s.log", fs.dirname, topic)
+	bytes, err := ioutil.ReadFile(logName)
+	if err != nil {
+		return msgList
 	}
+	byteList := strings.Split(string(bytes), "\n")
+	for _, byteItem := range byteList {
+		if byteItem == "" {
+			continue
+		}
+		msg := new(common.MessageUnit)
+		msgList = append(msgList, *msg.UnPack([]byte(byteItem)))
+	}
+
 	return msgList
 }
 
@@ -94,20 +94,10 @@ func (fs *filestore) Close() {
 }
 
 func (fs *filestore) Cap(topic string) int {
-	buf := make([]byte, 32*1024)
-	count := 0
-	lineSep := []byte{'\n'}
-	if filePtr := fs.files[topic]; filePtr == nil {
+	logName := fmt.Sprintf("%s%s.log", fs.dirname, topic)
+	buf, err := ioutil.ReadFile(logName)
+	if err != nil {
 		return 0
 	}
-	for {
-		c, err := fs.files[topic].Read(buf)
-		if err != nil && os.IsNotExist(err) {
-			return 0
-		}
-		count += bytes.Count(buf[:c], lineSep)
-		if err == io.EOF {
-			return count
-		}
-	}
+	return bytes.Count(buf, []byte{'\n'})
 }

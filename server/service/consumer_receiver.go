@@ -28,7 +28,9 @@ func NewConsumerReceiver(chanAssemble map[string][]common.MsgUnitChan) *Consumer
 			State:    new(sync.Map),
 			Position: make(map[string][]int64, 1024),
 			Topic:    make(map[string][]string, 1024),
+			IsOldOne: make(map[string]bool),
 			mu:       sync.Mutex{}},
+
 	}
 }
 
@@ -147,6 +149,7 @@ type Pool struct {
 	// Topic[ConnId]   {	Topic_A,		Topic_B,		Topic_C		}
 	Position map[string][]int64
 	Topic    map[string][]string
+	IsOldOne map[string]bool
 	mu       sync.Mutex
 }
 

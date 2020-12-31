@@ -70,18 +70,18 @@ func (tcp *TCP) startConnLoop() error {
 }
 
 func (tcp *TCP) popRetainQueue(uid, topic string, k int) {
-	position := tcp.ConsumerReceiver.Pool.Position[uid][k]
 	// todo 优化，每次都要去查一遍保留队列是否为空，并且是IO操作
-	if position == 0 { // 没有偏移,即是新来的
+	if !tcp.ConsumerReceiver.Pool.IsOldOne[uid]{
 		if tcp.ProducerReceiver.RetainQueue.Cap(topic) > 0 { // 读一下retainQueue的保留内容
 			for _, msg := range tcp.ProducerReceiver.RetainQueue.ReadAll(topic) {
 				tcp.ConsumerReceiver.ChanAssemble[uid][k] <- msg
 			}
 		}
 		maxPosition := len(tcp.ProducerReceiver.Queue.Local[topic])
-		fmt.Println("最新偏移", maxPosition)
+		fmt.Println("最新偏移",maxPosition)
 		// 更新到最新的偏移
 		tcp.ConsumerReceiver.Pool.UpdatePositionTo(uid, topic, maxPosition)
+		tcp.ConsumerReceiver.Pool.IsOldOne[uid] = true
 	}
 }
 
