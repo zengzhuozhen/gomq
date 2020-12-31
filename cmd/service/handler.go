@@ -37,7 +37,7 @@ func SubscribeMessage(c *cli.Context) error {
 }
 
 func ListMessage(context *cli.Context) error {
-	resp := common.HttpGet(fmt.Sprintf("http://127.0.0.1:8000/topic/%s",context.Args().First()))
+	resp := common.HttpGet(fmt.Sprintf("http://127.0.0.1:8000/messages/%s",context.Args().First()))
 	listDo := new(do.MessagesDo)
 	_ = json.Unmarshal([]byte(resp),listDo)
 	fmt.Println("topic:",listDo.TopicName)

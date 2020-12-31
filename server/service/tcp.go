@@ -71,12 +71,15 @@ func (tcp *TCP) startConnLoop() error {
 
 func (tcp *TCP) popRetainQueue(uid, topic string, k int) {
 	position := tcp.ConsumerReceiver.Pool.Position[uid][k]
-	if position == 0 { // 没有偏移,即是新来的, 直接读retaineQueue，然后更新到最新偏移
-		fmt.Println(tcp.ProducerReceiver.Queue.Local[topic])
-		for _, msg := range tcp.ProducerReceiver.RetainQueue.ReadAll(topic) {
-			tcp.ConsumerReceiver.ChanAssemble[uid][k] <- msg
+	// todo 优化，每次都要去查一遍保留队列是否为空，并且是IO操作
+	if position == 0 { // 没有偏移,即是新来的
+		if tcp.ProducerReceiver.RetainQueue.Cap(topic) > 0 { // 读一下retainQueue的保留内容
+			for _, msg := range tcp.ProducerReceiver.RetainQueue.ReadAll(topic) {
+				tcp.ConsumerReceiver.ChanAssemble[uid][k] <- msg
+			}
 		}
 		maxPosition := len(tcp.ProducerReceiver.Queue.Local[topic])
+		fmt.Println("最新偏移", maxPosition)
 		// 更新到最新的偏移
 		tcp.ConsumerReceiver.Pool.UpdatePositionTo(uid, topic, maxPosition)
 	}
@@ -195,7 +198,7 @@ func ReadPacket(r io.Reader) (protocolPacket.ControlPacket, error) {
 		err = packet.Read(r, fh)
 	case byte(protocol.PUBREL):
 		packet = &protocolPacket.PubRelPacket{}
-		err = packet.Read(r,fh)
+		err = packet.Read(r, fh)
 	case byte(protocol.SUBSCRIBE):
 		packet = &protocolPacket.SubscribePacket{}
 		err = packet.ReadHeadOnly(r, fh) // 只读头部，剩下的具体业务里面处理

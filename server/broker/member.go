@@ -32,8 +32,8 @@ func (m MemberBroker) Run() {
 func (m *MemberBroker) startPersistent() error {
 	fmt.Println("开启持久化协程")
 	m.persistent = store.NewMemStore()
-	m.persistent.Open()
-	m.persistent.Load()
+	m.persistent.Open("")
+	m.persistent.ReadAll("")
 	for {
 		var data common.MessageUnit
 		data = <-m.memberClient.PersistentChan

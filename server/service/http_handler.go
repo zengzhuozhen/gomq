@@ -31,7 +31,7 @@ func (h *Handler) Messages(writer http.ResponseWriter, request *http.Request) {
 	listMessageDo := new(do.MessagesDo)
 	listMessageDo.TopicName = topicName
 
-	for _, message := range h.ProducerReceiver.Queue.Local[topicName] {
+	for _, message := range h.ProducerReceiver.RetainQueue.ReadAll(topicName) {
 		listMessageDo.MessageList = append(listMessageDo.MessageList, message.Data.Body)
 	}
 

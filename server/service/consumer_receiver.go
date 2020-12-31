@@ -23,13 +23,12 @@ type ConsumerReceiver struct {
 func NewConsumerReceiver(chanAssemble map[string][]common.MsgUnitChan) *ConsumerReceiver {
 	return &ConsumerReceiver{
 		ChanAssemble: chanAssemble,
-		QoSGuarantee:make(map[string]QoSForTopic),
+		QoSGuarantee: make(map[string]QoSForTopic),
 		Pool: &Pool{
-		State:    new(sync.Map),
-		Position: make(map[string][]int64, 1024),
-		Topic:    make(map[string][]string, 1024),
-		mu:       sync.Mutex{}},
-
+			State:    new(sync.Map),
+			Position: make(map[string][]int64, 1024),
+			Topic:    make(map[string][]string, 1024),
+			mu:       sync.Mutex{}},
 	}
 }
 
@@ -64,7 +63,7 @@ func (r *ConsumerReceiver) ConsumeAndResponse(ctx context.Context, conn net.Conn
 			fmt.Println(err)
 			continue
 		}
-		if strings.HasSuffix(topic,"*"){
+		if strings.HasSuffix(topic, "*") {
 			fmt.Println("目前服务端不支持通配符")
 			continue
 		}
@@ -72,7 +71,7 @@ func (r *ConsumerReceiver) ConsumeAndResponse(ctx context.Context, conn net.Conn
 		TopicList = append(TopicList, topic)
 		QoSList = append(QoSList, QoS)
 		qosForTopic[topic] = QoS
-		packet.RemainingLength -= 2 + len(topic) + 1	// LSB + MSB + topic + qos
+		packet.RemainingLength -= 2 + len(topic) + 1 // LSB + MSB + topic + qos
 	}
 
 	r.QoSGuarantee[connUid] = qosForTopic
@@ -119,7 +118,7 @@ func (r *ConsumerReceiver) CloseConsumer(conn net.Conn, packet *protocolPacket.U
 		// 找出此次需要关闭的 topic 通道对应的 key ，需严格保证 Pool 中所有数组顺序排列
 		for k, top := range r.Pool.Topic[connUid] {
 			if top == topic {
-				fmt.Println("关闭",connUid,"的主题",topic)
+				fmt.Println("关闭", connUid, "的主题", topic)
 				close(r.ChanAssemble[connUid][k])
 			}
 		}
@@ -170,22 +169,22 @@ func (p *Pool) Add(connUid string, topics []string) {
 
 func (p *Pool) UpdatePosition(uid, topic string) {
 	p.mu.Lock()
+	defer p.mu.Unlock()
 	for k, v := range p.Topic[uid] {
 		if topic == v {
 			p.Position[uid][k]++
 			break
 		}
 	}
-	p.mu.Unlock()
 }
 
 func (p *Pool) UpdatePositionTo(uid, topic string, to int) {
 	p.mu.Lock()
+	defer p.mu.Unlock()
 	for k, v := range p.Topic[uid] {
 		if topic == v {
 			p.Position[uid][k] = int64(to)
 			break
 		}
 	}
-	p.mu.Unlock()
 }

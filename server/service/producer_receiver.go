@@ -15,10 +15,10 @@ type ProducerReceiver struct {
 	tempPublishPool map[int]protocolPacket.PublishPacket
 }
 
-func NewProducerReceiver(queue *common.Queue) *ProducerReceiver {
+func NewProducerReceiver(queue *common.Queue,readAllFunc func(topic string) []common.MessageUnit, resetFunc func(topic string),capFunc func(topic string)int) *ProducerReceiver {
 	return &ProducerReceiver{
 		Queue:           queue,
-		RetainQueue:     common.NewRetainQueue(),
+		RetainQueue:     common.NewRetainQueue(readAllFunc, resetFunc,capFunc),
 		tempPublishPool: make(map[int]protocolPacket.PublishPacket),
 	}
 }

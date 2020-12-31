@@ -8,7 +8,7 @@ import (
 )
 
 var endpoint = flag.String("endpoint", ":9000", "mq服务运行地址")
-var savepath = flag.String("savepath", "/var/log/tempmq.log", "mq数据保存路径")
+var dirname = flag.String("dirname", "/var/log/tempmq/", "mq数据保存文件夹路径")
 var persistent = flag.Bool("persistent", true, "是否开启持久化")
 var etcdurl string
 
@@ -24,6 +24,6 @@ func init() {
 // todo 零拷贝 copyBuffer , impl writeTo and ReadFrom
 func main() {
 	flag.Parse()
-	opts := broker.NewOption(broker.Leader, *endpoint, *savepath, *persistent, []string{etcdurl} )
+	opts := broker.NewOption(broker.Leader, *endpoint, *dirname, []string{etcdurl})
 	broker.NewBroker(opts).Run()
 }

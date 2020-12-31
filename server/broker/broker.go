@@ -27,22 +27,19 @@ const (
 	Member
 )
 
-
 type option struct {
-	identity       int
-	endPoint       string
-	etcdUrls       []string
-	savePath       string
-	needPersistent bool
+	identity int
+	endPoint string
+	etcdUrls []string
+	dirname  string
 }
 
-func NewOption(identity int, endPoint, savePath string, needPersistent bool, etcdUrls []string) *option {
+func NewOption(identity int, endPoint, dirname string, etcdUrls []string) *option {
 	return &option{
-		identity:       identity,
-		endPoint:       endPoint,
-		etcdUrls:       etcdUrls,
-		savePath:       savePath,
-		needPersistent: needPersistent,
+		identity: identity,
+		endPoint: endPoint,
+		etcdUrls: etcdUrls,
+		dirname:  dirname,
 	}
 }
 
@@ -70,8 +67,9 @@ func NewBroker(opt *option) IBroker {
 	broker.brokerId = uuid.New().String()
 	broker.opt = opt
 
-	queue := common.NewQueue(opt.needPersistent)
-	broker.ProducerReceiver = service.NewProducerReceiver(queue)
+	queue := common.NewQueue()
+	broker.persistent = store.NewFileStore(broker.opt.dirname)
+	broker.ProducerReceiver = service.NewProducerReceiver(queue, broker.persistent.ReadAll, broker.persistent.Reset,broker.persistent.Cap)
 	broker.ConsumerReceiver = service.NewConsumerReceiver(make(map[string][]common.MsgUnitChan, 1024))
 	broker.MemberReceiver = service.NewMemberReceiver(queue)
 	broker.FollowersRemote = make(map[string]string)
@@ -146,5 +144,6 @@ func (b *Broker) gracefulStop() error {
 	} else {
 		_, err = kv.Delete(context.TODO(), fmt.Sprintf("%s/%s", FollowerPath, b.brokerId))
 	}
+	b.persistent.Close()
 	return err
 }

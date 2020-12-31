@@ -8,16 +8,12 @@ import (
 type Queue struct {
 	Local          map[string][]MessageUnit // Local[Topic][Message_1,Message_2]
 	mu             *sync.RWMutex
-	openPersistent bool
-	PersistentChan chan MessageUnit
 }
 
-func NewQueue(openPersistent bool) *Queue {
+func NewQueue() *Queue {
 	return &Queue{
-		Local:          make(map[string][]MessageUnit, 1024),
+		Local:          make(map[string][]MessageUnit),
 		mu:             new(sync.RWMutex),
-		openPersistent: openPersistent,
-		PersistentChan: make(chan MessageUnit),
 	}
 }
 
@@ -25,9 +21,6 @@ func (q *Queue) Push(messageUnit MessageUnit) {
 	q.mu.RLock()
 	q.Local[messageUnit.Topic] = append(q.Local[messageUnit.Topic], messageUnit)
 	q.mu.RUnlock()
-	if q.openPersistent{
-		q.PersistentChan <- messageUnit
-	}
 }
 
 func (q *Queue) Pop(topic string, position int64) (message MessageUnit, err error) {

@@ -50,12 +50,12 @@ func (handler *PublishPacketHandle) HandleDup() {
 func (handler *PublishPacketHandle) HandleRetain(retainQueue *common.RetainQueue) {
 	if handler.publishPacket.Retain() == true && handler.publishPacket.QoS() == 0 {
 		// 丢弃之前保留的主题信息
-		delete(retainQueue.Local, handler.publishPacket.TopicName)
+		retainQueue.Reset(handler.publishPacket.TopicName)
 		// 将该消息作为最新的保留消息
 		message := new(common.Message)
 		message = message.UnPack(handler.publishPacket.Payload)
 		messageUnit := common.NewMessageUnit(handler.publishPacket.TopicName, handler.publishPacket.QoS(), *message)
-		retainQueue.Local[handler.publishPacket.TopicName] = []common.MessageUnit{messageUnit}
+		retainQueue.Push(messageUnit)
 	}
 }
 
