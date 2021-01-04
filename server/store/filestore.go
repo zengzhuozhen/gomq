@@ -58,8 +58,12 @@ func (fs *filestore) Append(item common.MessageUnit) {
 	}
 }
 
-func (fs *filestore) Reset(string) {
-	return
+func (fs *filestore) Reset(topic string) {
+	logName := fmt.Sprintf("%s%s.log", fs.dirname, topic)
+	err := ioutil.WriteFile(logName, []byte{}, os.ModePerm)
+	if err != nil {
+		panic(err.Error())
+	}
 }
 
 func (fs *filestore) ReadAll(topic string) []common.MessageUnit {
@@ -70,10 +74,7 @@ func (fs *filestore) ReadAll(topic string) []common.MessageUnit {
 		return msgList
 	}
 	byteList := strings.Split(string(bytes), "\n")
-	for _, byteItem := range byteList {
-		if byteItem == "" {
-			continue
-		}
+	for _, byteItem := range byteList[:len(byteList)-1] {
 		msg := new(common.MessageUnit)
 		msgList = append(msgList, *msg.UnPack([]byte(byteItem)))
 	}

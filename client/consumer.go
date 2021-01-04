@@ -7,6 +7,7 @@ import (
 	"gomq/protocol"
 	protocolPacket "gomq/protocol/packet"
 	"gomq/protocol/utils"
+	"strings"
 	"time"
 )
 
@@ -15,7 +16,7 @@ type IConsumer interface {
 	Heart(duration time.Duration)
 	ReadPacket(msgChan chan<- *common.MessageUnit)
 	UnSubscribe(topic []string)
-	DisConnect ()
+	DisConnect()
 }
 
 type Consumer struct {
@@ -71,38 +72,43 @@ func (c *Consumer) ReadPacket(msgUnitChan chan<- *common.MessageUnit) {
 	for {
 		// 读取数据包
 		var fh protocolPacket.FixedHeader
+		var packet protocolPacket.ControlPacket
+
 		if err := fh.Read(c.client.conn); err != nil {
 			fmt.Printf("读取包头失败%+v", err)
 			return
 		}
 		switch utils.DecodePacketType(fh.TypeAndReserved) {
 		case byte(protocol.SUBACK):
-			var subAckPacket protocolPacket.SubAckPacket
-			err := subAckPacket.Read(c.client.conn, fh)
+			packet = &protocolPacket.SubAckPacket{}
+			err := packet.Read(c.client.conn, fh)
 			if err != nil {
-				fmt.Println("客户端订阅主题失败:等待subAck")
+				fmt.Println("客户端订阅主题失败")
 				c.client.conn.Close()
+			} else {
+				fmt.Println("收到服务端确认订阅消息")
 			}
-			fmt.Println("收到服务端确认订阅消息")
 		case byte(protocol.UNSUBACK):
-			var fh protocolPacket.FixedHeader
-			var unSubAckPacket protocolPacket.UnSubAckPacket
-			_ = fh.Read(c.client.conn)
-			unSubAckPacket.Read(c.client.conn, fh)
-			fmt.Println("收到服务端确认取消订阅")
+			packet = &protocolPacket.UnSubAckPacket{}
+			err := packet.Read(c.client.conn, fh)
+			if err != nil {
+				fmt.Println("客户端取消订阅主题失败")
+			} else {
+				fmt.Println("收到服务端确认取消订阅")
+			}
 		case byte(protocol.PINGRESP):
 			fmt.Println("收到服务端心跳回应")
-		case byte(protocol.PUBLISH):
+		default:
 			// 普通消息
 			messByte := make([]byte, 4096) // todo fix:这里可能由于粘包导致超出slice长度
 			n, _ := c.client.conn.Read(messByte)
 			head := fh.Pack()
 			data := append(head.Bytes(), messByte[:n]...)
-			message := new(common.MessageUnit)
-			message = message.UnPack(data)
-			msgUnitChan <- message
-		default:
-			fmt.Println("无法处理当前类型",utils.DecodePacketType(fh.TypeAndReserved))
+			byteList := strings.Split(string(data), "\n")
+			for _, byteItem := range byteList[:len(byteList)-1] {
+				msg := new(common.MessageUnit)
+				msgUnitChan <- msg.UnPack([]byte(byteItem))
+			}
 		}
 	}
 }
@@ -112,7 +118,7 @@ func (c *Consumer) UnSubscribe(topic []string) {
 	_ = unSubscribePack.Write(c.client.conn)
 }
 
-func (c *Consumer) DisConnect(){
+func (c *Consumer) DisConnect() {
 	c.cancelFunc()
 	c.client.DisConnect()
 }

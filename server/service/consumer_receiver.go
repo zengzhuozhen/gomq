@@ -97,6 +97,7 @@ func (r *ConsumerReceiver) listenMsgChan(ctx context.Context, k int, connUid str
 		case msg := <-r.ChanAssemble[connUid][k]:
 			// 防止多个管道同时竞争所有消息的问题,采用客户端连接池进行逻辑隔离解决
 			messagePacket := msg.Pack()
+			messagePacket = append(messagePacket,[]byte{'\n'}...)
 			fmt.Printf("准备推送消息:{Topic:'%s'} {Body:'%s'}", msg.Topic, msg.Data.Body)
 			if _, err := conn.Write(messagePacket); err != nil {
 				fmt.Println(err)

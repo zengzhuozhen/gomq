@@ -17,7 +17,7 @@ func BenchmarkProducer_Publish(b *testing.B) {
 				Body:   "hello world A ",
 			},
 		}
-		producer.Publish(mess, 0, 1)
+		producer.Publish(mess, 1, 1)
 	}
 }
 
