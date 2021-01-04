@@ -77,7 +77,6 @@ func (fs *filestore) ReadAll(topic string) []common.MessageUnit {
 		msg := new(common.MessageUnit)
 		msgList = append(msgList, *msg.UnPack([]byte(byteItem)))
 	}
-
 	return msgList
 }
 

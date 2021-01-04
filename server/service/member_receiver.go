@@ -1,8 +1,8 @@
 package service
 
 import (
-	"fmt"
 	"gomq/common"
+	"gomq/log"
 	protocolPacket "gomq/protocol/packet"
 	"net"
 	"time"
@@ -34,12 +34,12 @@ func (m *MemberReceiver) Broadcast() error {
 		select {
 		case msg := <-m.BroadcastChan:
 			messagePacket := msg.Pack()
-			fmt.Printf("Leader准备广播消息:{Topic:'%s'} {Body:'%s'}", msg.Topic, msg.Data.Body)
+			log.Debugf("Leader准备广播消息:{Topic:'%s'} {Body:'%s'}", msg.Topic, msg.Data.Body)
 			for address, conn := range m.MemberConnPool {
 				m.send(address, conn, messagePacket)
 			}
 		case address := <-m.MemberQuitSignal:
-			fmt.Printf("Member{socket:'%s'}连接关闭")
+			log.Debugf("Member{socket:'%s'}连接关闭")
 			delete(m.MemberConnPool, address)
 		}
 	}
@@ -51,16 +51,16 @@ func (m *MemberReceiver) send(address string, conn net.Conn, messagePacket []byt
 		for topic, dataAssemble := range m.Queue.Local {
 			for _, msg := range dataAssemble {
 				if topic != msg.Topic {
-					fmt.Println("主题和数据内容不符合")
+					log.Debugf("主题和数据内容不符合")
 				}
 				if _, err := conn.Write(msg.Pack()); err != nil {
-					fmt.Println(err)
+					log.Errorf(err.Error())
 				}
 			}
 		}
 	} else {
 		if _, err := conn.Write(messagePacket); err != nil {
-			fmt.Println(err)
+			log.Errorf(err.Error())
 		}
 	}
 }
@@ -72,7 +72,7 @@ func (m *MemberReceiver) RegisterSyncAndResponse(conn net.Conn, packet *protocol
 	syncAckPacket := protocolPacket.NewSyncAckPacket(packet.PacketIdentifier)
 	err := syncAckPacket.Write(conn)
 	if err != nil {
-		fmt.Println("返回syncAck失败", err)
+		log.Errorf("返回syncAck失败", err)
 	}
 }
 

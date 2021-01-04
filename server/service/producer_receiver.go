@@ -3,6 +3,7 @@ package service
 import (
 	"fmt"
 	"gomq/common"
+	"gomq/log"
 	"gomq/protocol"
 	"gomq/protocol/handler"
 	protocolPacket "gomq/protocol/packet"
@@ -45,13 +46,12 @@ func (p *ProducerReceiver) toQueue(publishPacket *protocolPacket.PublishPacket) 
 	message := new(common.Message)
 	message = message.UnPack(publishPacket.Payload)
 	messageUnit := common.NewMessageUnit(publishPacket.TopicName, publishPacket.QoS(), *message)
-	fmt.Printf("主题 %s 生产了: %s ", publishPacket.TopicName, message.MsgKey)
+	log.Debugf("主题 %s 生产了: %s ", publishPacket.TopicName, message.MsgKey)
 	p.Queue.Push(messageUnit)
-	fmt.Println("当前列表",p.Queue.Local)
 	if publishPacket.Retain() {
 		p.RetainQueue.Push(messageUnit)
 	}
-	fmt.Println("记录入队数据", message.MsgKey)
+	log.Debugf("记录入队数据", message.MsgKey)
 }
 
 func (p *ProducerReceiver) responsePubAck(conn net.Conn, identify uint16) {
@@ -61,7 +61,7 @@ func (p *ProducerReceiver) responsePubAck(conn net.Conn, identify uint16) {
 }
 
 func (p *ProducerReceiver) responsePubRec(conn net.Conn, packet *protocolPacket.PublishPacket) {
-	fmt.Println("准备返回pubRec")
+	log.Debugf("准备返回pubRec")
 	// PUBREC – 发布收到（QoS 2，第一步)
 	pubRecPacket := protocolPacket.NewPubRecPacket(packet.PacketIdentifier)
 	pubRecPacket.Write(conn)
@@ -73,7 +73,7 @@ func (p *ProducerReceiver) AcceptRelAndRespComp(conn net.Conn, packet *protocolP
 	p.toQueue(&publishPacket)
 	delete(p.tempPublishPool, int(packet.PacketIdentifier)) // 删除临时保存的publish包，防止重发
 	// PUBCOMP – 发布完成（QoS 2，第三步)
-	fmt.Println("准备返回pubComp")
+	log.Debugf("准备返回pubComp")
 	pubCompPacket := protocolPacket.NewPubCompPacket(packet.PacketIdentifier)
 	pubCompPacket.Write(conn)
 }

@@ -8,7 +8,6 @@ import (
 	"gomq/protocol/packet"
 	"gomq/protocol/utils"
 	"reflect"
-	"time"
 )
 
 type ConnectPacketHandler interface {
@@ -155,14 +154,9 @@ func (handler *ConnectPacketHandle) ErrorTypeToAck() byte {
 	return handler.errorTypeToAck
 }
 
-func NewConnectPacketHandle(connectPacket *packet.ConnectPacket, connectFlags *packet.ConnectFlags, payLoad *packet.ConnectPacketPayLoad) ConnectPacketHandler {
-	config := clientv3.Config{
-		Endpoints:   []string{":2379"},
-		DialTimeout: 10 * time.Second,
-	}
-	etcdClient, _ := clientv3.New(config)
+func NewConnectPacketHandle(connectPacket *packet.ConnectPacket, connectFlags *packet.ConnectFlags, payLoad *packet.ConnectPacketPayLoad,client *clientv3.Client) ConnectPacketHandler {
 	return &ConnectPacketHandle{
-		etcdClient:     etcdClient,
+		etcdClient:     client,
 		connectPacket:  connectPacket,
 		connectFlags:   connectFlags,
 		connectPayLoad: payLoad,

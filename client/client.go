@@ -13,6 +13,7 @@ import (
 
 type Client interface {
 	Connect() error
+	DisConnect()
 	GetAvailableIdentity() uint16
 }
 
@@ -30,6 +31,8 @@ type client struct {
 	conn         net.Conn
 	IdentityPool map[int]bool
 }
+
+
 
 func NewClient(opt *Option) Client {
 	identityPool := make(map[int]bool)
@@ -75,6 +78,14 @@ func (c *client) Connect() error {
 
 	return nil
 }
+
+
+func (c *client) DisConnect() {
+	disConnectPack := packet.NewDisConnectPacketPacket()
+	_ = disConnectPack.Write(c.conn)
+	_ = c.conn.Close()
+}
+
 
 func (c *client) GetAvailableIdentity() uint16 {
 	for k, v := range c.IdentityPool {

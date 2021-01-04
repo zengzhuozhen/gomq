@@ -4,7 +4,10 @@ import (
 	"fmt"
 	"golang.org/x/sync/errgroup"
 	"gomq/common"
+	"gomq/log"
 	"gomq/server/service"
+	"net/http"
+	_ "net/http/pprof"
 )
 
 type LeaderBroker struct {
@@ -20,17 +23,18 @@ func (l *LeaderBroker) Run() {
 	l.wg.Go(l.startTcpServer)
 	l.wg.Go(l.startHttpServer)
 	l.wg.Go(l.startPersistent)
+	l.wg.Go(l.startPprof)
 	l.wg.Go(l.handleSignal)
 	l.wg.Go(l.MemberReceiver.Broadcast)
 	_ = l.wg.Wait()
 }
 
 func (l *LeaderBroker) startPersistent() error {
-	fmt.Println("开启持久化协程")
+	log.Infof("开启持久化协程")
 	for {
 		var data common.MessageUnit
 		data = <-l.ProducerReceiver.RetainQueue.ToPersistentChan
-		fmt.Println("接收到持久化消息单元")
+		log.Debugf("接收到持久化消息单元")
 		l.persistent.Open(data.Topic)
 		l.persistent.Append(data)
 		l.MemberReceiver.HP += 100 // 自己做了持久化，更新高水位线，基于内存的无效
@@ -39,15 +43,24 @@ func (l *LeaderBroker) startPersistent() error {
 }
 
 func (l *LeaderBroker) startTcpServer() error {
-	fmt.Println("开启tcp server...")
-	tcp := service.NewTCP(l.opt.endPoint, l.ProducerReceiver, l.ConsumerReceiver, l.MemberReceiver)
+	log.Infof("开启tcp server...")
+	tcp := service.NewTCP(l.opt.endPoint, l.ProducerReceiver, l.ConsumerReceiver, l.MemberReceiver,l.RegisterCenter)
 	tcp.Start()
 	return nil
 }
 
 func (l *LeaderBroker) startHttpServer() error {
-	fmt.Println("开启http server... ")
+	log.Infof("开启http server... ")
 	http := service.NewHTTP(l.ProducerReceiver, l.ConsumerReceiver)
 	http.Start()
+	return nil
+}
+
+func (l *LeaderBroker) startPprof() error {
+	log.Infof("开启pprof")
+	ip := "127.0.0.1:6060"
+	if err := http.ListenAndServe(ip, nil); err != nil {
+		fmt.Printf("start pprof failed on %s\n", ip)
+	}
 	return nil
 }

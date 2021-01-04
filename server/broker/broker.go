@@ -8,9 +8,9 @@ import (
 	"golang.org/x/sync/errgroup"
 	"gomq/client"
 	"gomq/common"
+	"gomq/log"
 	"gomq/server/service"
 	"gomq/server/store"
-	"log"
 	"os"
 	"os/signal"
 	"strings"
@@ -70,12 +70,12 @@ func NewBroker(opt *option) IBroker {
 	queue := common.NewQueue()
 	broker.persistent = store.NewFileStore(broker.opt.dirname)
 	broker.ProducerReceiver = service.NewProducerReceiver(queue, broker.persistent.ReadAll, broker.persistent.Reset,broker.persistent.Cap)
-	broker.ConsumerReceiver = service.NewConsumerReceiver(make(map[string][]common.MsgUnitChan, 1024))
+	broker.ConsumerReceiver = service.NewConsumerReceiver(make(map[string][]common.MsgUnitChan))
 	broker.MemberReceiver = service.NewMemberReceiver(queue)
 	broker.FollowersRemote = make(map[string]string)
 
 	broker.register()
-	fmt.Println("初始化broker成功，ID:" + broker.brokerId)
+	log.Debugf("初始化broker成功，ID:" + broker.brokerId)
 
 	if broker.opt.identity == Leader {
 		return NewLeaderBroker(broker)
@@ -113,8 +113,6 @@ func (b *Broker) register() {
 	// 获取leader ID
 	resp, _ = kv.Get(ctx, LeaderId)
 	b.LeaderId = string(resp.Kvs[0].Value)
-
-	fmt.Println("获取leader")
 	resp, _ = kv.Get(ctx, FollowerPath, clientv3.WithPrefix())
 	for _, i := range resp.Kvs {
 		clientId := strings.SplitAfter(string(i.Key), FollowerPath)[1]
@@ -126,10 +124,10 @@ func (b *Broker) handleSignal() error {
 	sigChan := make(chan os.Signal)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 	sig := <-sigChan
-	log.Printf("Broker.HandleSignal receive signal %s \n", sig)
+	log.Debugf("Broker.HandleSignal receive signal %s \n", sig)
 	err := b.gracefulStop()
 	if err == nil {
-		fmt.Println("Graceful Exit")
+		log.Debugf("Graceful Exit")
 		os.Exit(0)
 	}
 	return err

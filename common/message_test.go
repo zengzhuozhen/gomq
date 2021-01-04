@@ -8,7 +8,6 @@ import (
 
 func TestMessage_PackAndUnPack(t *testing.T) {
 	m := Message{
-		MsgId:  1,
 		MsgKey: "hello",
 		Body:   "world",
 	}

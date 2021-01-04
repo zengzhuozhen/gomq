@@ -16,7 +16,7 @@ type DisConnectPacket struct {
 func NewDisConnectPacketPacket() DisConnectPacket {
 	return DisConnectPacket{
 		FixedHeader: FixedHeader{
-			TypeAndReserved: utils.EncodePacketType(byte(protocol.PINGREQ)),
+			TypeAndReserved: utils.EncodePacketType(byte(protocol.DISCONNECT)),
 		},
 	}
 }

@@ -6,9 +6,8 @@ import (
 )
 
 func TestQueue_PushAndPop(t *testing.T) {
-	queue := NewQueue(false)
+	queue := NewQueue()
 	msgUnit := NewMessageUnit("A",1,Message{
-		MsgId:  0,
 		MsgKey: "aa",
 		Body:   "bb",
 	})

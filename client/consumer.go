@@ -15,7 +15,7 @@ type IConsumer interface {
 	Heart(duration time.Duration)
 	ReadPacket(msgChan chan<- *common.MessageUnit)
 	UnSubscribe(topic []string)
-	DisConnect()
+	DisConnect ()
 }
 
 type Consumer struct {
@@ -46,7 +46,8 @@ func (c *Consumer) Subscribe(topic []string) <-chan *common.MessageUnit {
 	fmt.Println("发送subscribe")
 
 	MsgUnitChan := make(chan *common.MessageUnit, 1000)
-	go c.Heart(3 * time.Second)
+
+	//go c.Heart(3 * time.Second)
 	go c.ReadPacket(MsgUnitChan)
 	return MsgUnitChan
 }
@@ -71,10 +72,9 @@ func (c *Consumer) ReadPacket(msgUnitChan chan<- *common.MessageUnit) {
 		// 读取数据包
 		var fh protocolPacket.FixedHeader
 		if err := fh.Read(c.client.conn); err != nil {
-			fmt.Errorf("读取包头失败%+v", err)
+			fmt.Printf("读取包头失败%+v", err)
 			return
 		}
-
 		switch utils.DecodePacketType(fh.TypeAndReserved) {
 		case byte(protocol.SUBACK):
 			var subAckPacket protocolPacket.SubAckPacket
@@ -92,7 +92,7 @@ func (c *Consumer) ReadPacket(msgUnitChan chan<- *common.MessageUnit) {
 			fmt.Println("收到服务端确认取消订阅")
 		case byte(protocol.PINGRESP):
 			fmt.Println("收到服务端心跳回应")
-		default:
+		case byte(protocol.PUBLISH):
 			// 普通消息
 			messByte := make([]byte, 4096) // todo fix:这里可能由于粘包导致超出slice长度
 			n, _ := c.client.conn.Read(messByte)
@@ -101,6 +101,8 @@ func (c *Consumer) ReadPacket(msgUnitChan chan<- *common.MessageUnit) {
 			message := new(common.MessageUnit)
 			message = message.UnPack(data)
 			msgUnitChan <- message
+		default:
+			fmt.Println("无法处理当前类型",utils.DecodePacketType(fh.TypeAndReserved))
 		}
 	}
 }
@@ -110,9 +112,7 @@ func (c *Consumer) UnSubscribe(topic []string) {
 	_ = unSubscribePack.Write(c.client.conn)
 }
 
-func (c *Consumer) DisConnect() {
-	disConnectPack := protocolPacket.NewDisConnectPacketPacket()
-	_ = disConnectPack.Write(c.client.conn)
-	_ = c.client.conn.Close()
+func (c *Consumer) DisConnect(){
 	c.cancelFunc()
+	c.client.DisConnect()
 }

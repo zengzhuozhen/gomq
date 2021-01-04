@@ -2,13 +2,13 @@ package service
 
 import (
 	"context"
-	"fmt"
+	"go.etcd.io/etcd/clientv3"
+	"gomq/log"
 	"gomq/protocol"
 	"gomq/protocol/handler"
 	protocolPacket "gomq/protocol/packet"
 	"gomq/protocol/utils"
 	"io"
-	"log"
 	"net"
 	"time"
 )
@@ -19,15 +19,17 @@ type TCP struct {
 	*ProducerReceiver
 	*ConsumerReceiver
 	*MemberReceiver
+	etcdClient *clientv3.Client
 }
 
-func NewTCP(address string, PR *ProducerReceiver, CR *ConsumerReceiver, MR *MemberReceiver) *TCP {
+func NewTCP(address string, PR *ProducerReceiver, CR *ConsumerReceiver, MR *MemberReceiver, client *clientv3.Client) *TCP {
 	return &TCP{
 		protocol:         "tcp",
 		address:          address,
 		ProducerReceiver: PR,
 		ConsumerReceiver: CR,
 		MemberReceiver:   MR,
+		etcdClient:       client,
 	}
 }
 
@@ -35,24 +37,24 @@ func (tcp *TCP) Start() {
 	go tcp.startConnLoop()
 	listen, err := net.Listen(tcp.protocol, tcp.address)
 	if err != nil {
-		log.Fatal(err.Error())
+		log.Errorf(err.Error())
 		return
 	}
 	for {
 		conn, err := listen.Accept()
-		fmt.Println("客户端：" + conn.RemoteAddr().String() + "连接")
+		log.Debugf("客户端：" + conn.RemoteAddr().String() + "连接")
 		if err != nil {
-			log.Fatal(err.Error())
+			log.Errorf(err.Error())
 			return
 		}
-		if handleConnectProtocol(conn) == true {
+		if tcp.handleConnectProtocol(conn) == true {
 			go tcp.holdConn(conn)
 		}
 	}
 }
 
 func (tcp *TCP) startConnLoop() error {
-	fmt.Println("开启监听连接循环")
+	log.Infof("开启监听连接循环")
 	for {
 		activeConn := tcp.ConsumerReceiver.Pool.ForeachActiveConn()
 		if len(activeConn) == 0 {
@@ -71,14 +73,14 @@ func (tcp *TCP) startConnLoop() error {
 
 func (tcp *TCP) popRetainQueue(uid, topic string, k int) {
 	// todo 优化，每次都要去查一遍保留队列是否为空，并且是IO操作
-	if !tcp.ConsumerReceiver.Pool.IsOldOne[uid]{
+	if !tcp.ConsumerReceiver.Pool.IsOldOne[uid] {
 		if tcp.ProducerReceiver.RetainQueue.Cap(topic) > 0 { // 读一下retainQueue的保留内容
-			for _, msg := range tcp.ProducerReceiver.RetainQueue.ReadAll(topic) {
+			msgList := tcp.ProducerReceiver.RetainQueue.ReadAll(topic)
+			for _, msg := range msgList {
 				tcp.ConsumerReceiver.ChanAssemble[uid][k] <- msg
 			}
 		}
 		maxPosition := len(tcp.ProducerReceiver.Queue.Local[topic])
-		fmt.Println("最新偏移",maxPosition)
 		// 更新到最新的偏移
 		tcp.ConsumerReceiver.Pool.UpdatePositionTo(uid, topic, maxPosition)
 		tcp.ConsumerReceiver.Pool.IsOldOne[uid] = true
@@ -103,7 +105,7 @@ func (tcp *TCP) holdConn(conn net.Conn) {
 	for {
 		packet, err := ReadPacket(conn)
 		if err != nil {
-			fmt.Println("客户端超时未响应或退出，关闭连接" + err.Error())
+			log.Debugf("客户端超时未响应或退出，关闭连接" + err.Error())
 			_ = conn.Close()
 			cancel()
 			return
@@ -125,28 +127,29 @@ func (tcp *TCP) holdConn(conn net.Conn) {
 		case *protocolPacket.SyncOffsetPacket:
 			tcp.MemberReceiver.UpdateSyncOffset(conn, packet.(*protocolPacket.SyncOffsetPacket))
 		case *protocolPacket.DisConnectPacket:
+			_ = conn.Close()
 			cancel()
-			conn.Close()
+			return
 		}
 	}
 }
 
-func handleConnectProtocol(conn net.Conn) bool {
+func (tcp *TCP) handleConnectProtocol(conn net.Conn) bool {
 	var connPacket protocolPacket.ConnectPacket
 	var fh protocolPacket.FixedHeader
 	initTime := time.Now()
 	if err := fh.Read(conn); err != nil {
-		fmt.Errorf("读取包头失败", err)
+		log.Errorf("读取固定包头失败", err)
 	}
 	err := connPacket.Read(conn, fh)
 	if err != nil || time.Now().Sub(initTime) > 3*time.Second {
-		fmt.Println("客户端断开连接或未再规定时间内发送消息")
+		log.Errorf("客户端断开连接或未再规定时间内发送消息")
 		conn.Close()
 		return false
 	}
 
 	connectFlags, payLoad := connPacket.ProvisionConnectFlagsAndPayLoad()
-	connectPacketHandler := handler.NewConnectPacketHandle(&connPacket, connectFlags, payLoad)
+	connectPacketHandler := handler.NewConnectPacketHandle(&connPacket, connectFlags, payLoad,tcp.etcdClient)
 	err = connectPacketHandler.HandleAll()
 	if err != nil {
 		conn.Close()
@@ -171,8 +174,8 @@ func responseConnectAck(conn net.Conn, code byte) {
 // 读取数据包
 func ReadPacket(r io.Reader) (protocolPacket.ControlPacket, error) {
 	var fh protocolPacket.FixedHeader
-	if err := fh.Read(r); err != nil {
-		fmt.Errorf("读取包头失败", err)
+	if err := fh.Read(r); err != nil && err != io.EOF {
+		log.Debugf("读取固定包头失败")
 		return nil, err
 	}
 

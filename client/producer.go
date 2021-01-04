@@ -15,6 +15,7 @@ type IProducer interface {
 	Publish(mess common.MessageUnit, QoS, retain int)
 	WaitAck()
 	WaitRecAndComp()
+	DisConnect()
 }
 
 type Producer struct {
@@ -60,7 +61,7 @@ func (p *Producer) Publish(messageUnit common.MessageUnit, QoS, retain int) {
 		go p.overtimeResendPublish(ctx, resendPacket)
 		p.WaitRecAndComp()
 	}
-	p.client.conn.Close()
+	p.DisConnect()
 	return
 
 }
@@ -155,4 +156,8 @@ func (p *Producer) overtimeResendPubrel(ctx context.Context, pubrelPacket protoc
 			return
 		}
 	}
+}
+
+func (p *Producer)DisConnect(){
+	p.client.DisConnect()
 }

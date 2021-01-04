@@ -13,12 +13,11 @@ func BenchmarkProducer_Publish(b *testing.B) {
 		mess := common.MessageUnit{
 			Topic: "A",
 			Data: common.Message{
-				MsgId:  1,
 				MsgKey: "test",
 				Body:   "hello world A ",
 			},
 		}
-		producer.Publish(mess, 0, 0)
+		producer.Publish(mess, 0, 1)
 	}
 }
 
@@ -31,7 +30,6 @@ func BenchmarkProducer_Publish_Parallel(b *testing.B) {
 			mess := common.MessageUnit{
 				Topic: "A",
 				Data: common.Message{
-					MsgId:  1,
 					MsgKey: "test",
 					Body:   "hello world A ",
 				},
@@ -48,7 +46,6 @@ func TestProducer_Publish_Topic_A(t *testing.T) {
 	mess := common.MessageUnit{
 		Topic: "A",
 		Data: common.Message{
-			MsgId:  1,
 			MsgKey: "test",
 			Body:   "hello world A ",
 		},
@@ -63,7 +60,6 @@ func TestProducer_Publish_Topic_B(t *testing.T) {
 	mess := common.MessageUnit{
 		Topic: "B",
 		Data: common.Message{
-			MsgId:  2,
 			MsgKey: "test",
 			Body:   "hello world B ",
 		},
@@ -78,7 +74,6 @@ func TestProducer_Publish_Topic_C(t *testing.T) {
 	mess := common.MessageUnit{
 		Topic: "C",
 		Data: common.Message{
-			MsgId:  3,
 			MsgKey: "test",
 			Body:   "hello world C",
 		},

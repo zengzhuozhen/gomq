@@ -1,21 +1,27 @@
 package common
 
 import (
+	"github.com/google/uuid"
 	"gomq/protocol/utils"
 )
 
 type Message struct {
-	MsgId  uint64 `json:"msg_id"`
-	MsgKey string `json:"msg_key"`
-	Body   string `json:"body"`
+	Id     string
+	MsgKey string
+	Body   string
 }
 
 func (m *Message) Pack() []byte {
+	m.Id = uuid.New().String()
 	return utils.StructToBytes(m)
 }
 
 func (m *Message) UnPack(b []byte) *Message {
 	return utils.BytesToStruct(b, &Message{}).(*Message)
+}
+
+func (m *Message) GetId() string {
+	return m.Id
 }
 
 // 消息单元

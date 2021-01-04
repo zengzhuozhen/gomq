@@ -48,7 +48,6 @@ func (h *Handler) Publish(writer http.ResponseWriter, request *http.Request) {
 	retain, _ := strconv.Atoi(vars.Get("retain"))
 
 	message := common.Message{
-		MsgId:  0,
 		MsgKey: "",
 		Body:   body,
 	}
