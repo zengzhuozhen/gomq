@@ -6,6 +6,7 @@ import (
 	"time"
 )
 
+
 func TestConsumer_Subscribe_Topic_A(t *testing.T) {
 	opts := defaultOpts()
 	consumer := NewConsumer(opts)
@@ -63,7 +64,7 @@ func TestConsumer_Subscribe_Then_Unsubscribe(t *testing.T) {
 	time.Sleep(15 * time.Second)
 }
 
-func TestConsumer_Subscribe_Then_Disconnect(t *testing.T) {
+func TestConsumer_Subscribe_Then_Close(t *testing.T) {
 	opts := defaultOpts()
 	consumer := NewConsumer(opts)
 	topicList := []string{"A", "B", "C"}
@@ -74,7 +75,7 @@ func TestConsumer_Subscribe_Then_Disconnect(t *testing.T) {
 		}
 	}()
 	time.Sleep(5 * time.Second)
-	consumer.DisConnect()
+	consumer.Close()
 	time.Sleep(5 * time.Second)
 }
 

@@ -18,7 +18,7 @@ type Member struct {
 }
 
 func NewMember(opts *Option) *Member {
-	client := NewClient(opts).(*client)
+	client := NewClient(opts)
 	return &Member{
 		client:          client,
 		opts:            opts,

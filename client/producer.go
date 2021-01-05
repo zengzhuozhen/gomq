@@ -11,29 +11,22 @@ import (
 	"time"
 )
 
-type IProducer interface {
-	Publish(mess common.MessageUnit, QoS, retain int)
-	WaitAck()
-	WaitRecAndComp()
-	DisConnect()
-}
-
 type Producer struct {
 	client                  *client
 	cancelResendPublishFunc context.CancelFunc
 	cancelResendPubrelFunc  context.CancelFunc
 }
 
-func NewProducer(opts *Option) IProducer {
-	client := NewClient(opts).(*client)
+func NewProducer(opts *Option) *Producer {
+	client := NewClient(opts)
+	err := client.Connect()
+	if err != nil {
+		panic("连接服务端失败")
+	}
 	return &Producer{client: client}
 }
 
 func (p *Producer) Publish(messageUnit common.MessageUnit, QoS, retain int) {
-	err := p.client.Connect()
-	if err != nil {
-		panic("连接服务端失败")
-	}
 
 	var identity uint16
 	if QoS != protocol.AtMostOnce {
@@ -41,7 +34,7 @@ func (p *Producer) Publish(messageUnit common.MessageUnit, QoS, retain int) {
 	}
 
 	publishPacket := protocolPacket.NewPublishPacket(messageUnit.Topic, messageUnit.Data, true, QoS, retain, identity)
-	err = publishPacket.Write(p.client.conn)
+	err := publishPacket.Write(p.client.conn)
 	if err != nil {
 		log.Fatal(err.Error())
 	}
@@ -61,9 +54,7 @@ func (p *Producer) Publish(messageUnit common.MessageUnit, QoS, retain int) {
 		go p.overtimeResendPublish(ctx, resendPacket)
 		p.WaitRecAndComp()
 	}
-	p.DisConnect()
 	return
-
 }
 
 func (p *Producer) WaitAck() {
@@ -158,6 +149,6 @@ func (p *Producer) overtimeResendPubrel(ctx context.Context, pubrelPacket protoc
 	}
 }
 
-func (p *Producer)DisConnect(){
+func (p *Producer) Close() {
 	p.client.DisConnect()
 }

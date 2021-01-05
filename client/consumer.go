@@ -11,13 +11,7 @@ import (
 	"time"
 )
 
-type IConsumer interface {
-	Subscribe(topic []string) <-chan *common.MessageUnit
-	Heart(duration time.Duration)
-	ReadPacket(msgChan chan<- *common.MessageUnit)
-	UnSubscribe(topic []string)
-	DisConnect()
-}
+
 
 type Consumer struct {
 	client     *client
@@ -26,29 +20,27 @@ type Consumer struct {
 	topic      []string
 }
 
-func NewConsumer(opts *Option) IConsumer {
-	client := NewClient(opts).(*client)
+func NewConsumer(opts *Option) *Consumer {
+	client := NewClient(opts)
 	ctx, cancel := context.WithCancel(context.Background())
+	err := client.Connect()
+	if err != nil {
+		panic("连接服务端失败")
+	}
 	return &Consumer{client: client, ctx: ctx, cancelFunc: cancel}
 }
 
 func (c *Consumer) Subscribe(topic []string) <-chan *common.MessageUnit {
 	c.topic = topic
-	err := c.client.Connect()
-	if err != nil {
-		panic("连接服务端失败")
-	}
 	// 连接服务端
-	subscribePacket := protocolPacket.NewSubscribePacket(1, topic, 0)
-	err = subscribePacket.Write(c.client.conn)
+	subscribePacket := protocolPacket.NewSubscribePacket(0, topic, 0)
+	err := subscribePacket.Write(c.client.conn)
 	if err != nil {
 		fmt.Println("客户端订阅主题失败:发送subscribe")
 	}
-	fmt.Println("发送subscribe")
-
 	MsgUnitChan := make(chan *common.MessageUnit, 1000)
 
-	//go c.Heart(3 * time.Second)
+	go c.Heart(3 * time.Second)
 	go c.ReadPacket(MsgUnitChan)
 	return MsgUnitChan
 }
@@ -118,7 +110,7 @@ func (c *Consumer) UnSubscribe(topic []string) {
 	_ = unSubscribePack.Write(c.client.conn)
 }
 
-func (c *Consumer) DisConnect() {
+func (c *Consumer) Close() {
 	c.cancelFunc()
 	c.client.DisConnect()
 }

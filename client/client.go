@@ -11,11 +11,7 @@ import (
 	"time"
 )
 
-type Client interface {
-	Connect() error
-	DisConnect()
-	GetAvailableIdentity() uint16
-}
+
 
 type Option struct {
 	Protocol string
@@ -34,7 +30,7 @@ type client struct {
 
 
 
-func NewClient(opt *Option) Client {
+func NewClient(opt *Option) *client {
 	identityPool := make(map[int]bool)
 	for i := 1; i <= math.MaxUint16; i++ { // 非零的16位报文标识符
 		identityPool[i] = true

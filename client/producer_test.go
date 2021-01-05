@@ -8,35 +8,37 @@ import (
 func BenchmarkProducer_Publish(b *testing.B) {
 	opts := defaultOpts()
 
+	producer := NewProducer(opts)
+	mess := common.MessageUnit{
+		Topic: "A",
+		Data: common.Message{
+			MsgKey: "test",
+			Body:   "hello world A ",
+		},
+	}
 	for i := 0; i < b.N; i++ {
-		producer := NewProducer(opts)
-		mess := common.MessageUnit{
-			Topic: "A",
-			Data: common.Message{
-				MsgKey: "test",
-				Body:   "hello world A ",
-			},
-		}
 		producer.Publish(mess, 1, 1)
 	}
+	producer.Close()
+
 }
 
 func BenchmarkProducer_Publish_Parallel(b *testing.B) {
 	opts := defaultOpts()
-
+	producer := NewProducer(opts)
+	mess := common.MessageUnit{
+		Topic: "A",
+		Data: common.Message{
+			MsgKey: "test",
+			Body:   "hello world A ",
+		},
+	}
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			producer := NewProducer(opts)
-			mess := common.MessageUnit{
-				Topic: "A",
-				Data: common.Message{
-					MsgKey: "test",
-					Body:   "hello world A ",
-				},
-			}
-			producer.Publish(mess, 0, 0)
+			producer.Publish(mess, 1, 1)
 		}
 	})
+	producer.Close()
 }
 
 func TestProducer_Publish_Topic_A(t *testing.T) {
