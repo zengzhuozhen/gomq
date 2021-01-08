@@ -10,6 +10,7 @@ import (
 	"gomq/protocol/utils"
 	"io"
 	"net"
+	"sync"
 	"time"
 )
 
@@ -63,21 +64,27 @@ func (tcp *TCP) startConnLoop() error {
 		}
 		for _, uid := range activeConn {
 			topicList := tcp.ConsumerReceiver.Pool.Topic[uid]
-			for k, topic := range topicList {
-				tcp.popRetainQueue(uid, topic, k)
-				tcp.popQueue(uid, topic, k)
+			var wg sync.WaitGroup
+			for topicIndex, topic := range topicList {
+				wg.Add(1)
+				go func(topicIndex int,topic string) {
+					tcp.popRetainQueue(uid, topic, topicIndex)
+					tcp.popQueue(uid, topic, topicIndex)
+					wg.Done()
+				}(topicIndex,topic)
 			}
+			wg.Wait()
 		}
 	}
 }
 
-func (tcp *TCP) popRetainQueue(uid, topic string, k int) {
+func (tcp *TCP) popRetainQueue(uid, topic string, topicIndex int) {
 	// todo 优化，每次都要去查一遍保留队列是否为空，并且是IO操作
 	if !tcp.ConsumerReceiver.Pool.IsOldOne[uid] {
 		if tcp.ProducerReceiver.RetainQueue.Cap(topic) > 0 { // 读一下retainQueue的保留内容
 			msgList := tcp.ProducerReceiver.RetainQueue.ReadAll(topic)
 			for _, msg := range msgList {
-				tcp.ConsumerReceiver.ChanAssemble[uid][k] <- msg
+				tcp.ConsumerReceiver.ChanAssemble[uid][topicIndex] <- msg
 			}
 		}
 		maxPosition := len(tcp.ProducerReceiver.Queue.Local[topic])
@@ -87,12 +94,12 @@ func (tcp *TCP) popRetainQueue(uid, topic string, k int) {
 	}
 }
 
-func (tcp *TCP) popQueue(uid, topic string, k int) {
-	position := tcp.ConsumerReceiver.Pool.Position[uid][k]
+func (tcp *TCP) popQueue(uid, topic string, topicIndex int) {
+	position := tcp.ConsumerReceiver.Pool.Position[uid][topicIndex]
 	// 正常处理
 	if msg, err := tcp.ProducerReceiver.Queue.Pop(topic, position); err == nil {
 		tcp.ConsumerReceiver.Pool.UpdatePosition(uid, topic)
-		tcp.ConsumerReceiver.ChanAssemble[uid][k] <- msg
+		tcp.ConsumerReceiver.ChanAssemble[uid][topicIndex] <- msg
 	} else {
 		time.Sleep(100 * time.Millisecond)
 	}
@@ -149,7 +156,7 @@ func (tcp *TCP) handleConnectProtocol(conn net.Conn) bool {
 	}
 
 	connectFlags, payLoad := connPacket.ProvisionConnectFlagsAndPayLoad()
-	connectPacketHandler := handler.NewConnectPacketHandle(&connPacket, connectFlags, payLoad,tcp.etcdClient)
+	connectPacketHandler := handler.NewConnectPacketHandle(&connPacket, connectFlags, payLoad, tcp.etcdClient)
 	err = connectPacketHandler.HandleAll()
 	if err != nil {
 		conn.Close()

@@ -27,7 +27,6 @@ func NewProducer(opts *Option) *Producer {
 }
 
 func (p *Producer) Publish(messageUnit common.MessageUnit, QoS, retain int) {
-
 	var identity uint16
 	if QoS != protocol.AtMostOnce {
 		identity = p.client.GetAvailableIdentity()
@@ -46,11 +45,11 @@ func (p *Producer) Publish(messageUnit common.MessageUnit, QoS, retain int) {
 	case protocol.AtMostOnce:
 		// noting to do
 	case protocol.AtLeastOnce:
-		resendPacket := protocolPacket.NewPublishPacket(messageUnit.Topic, messageUnit.Data, false, QoS, 0, identity)
+		resendPacket := protocolPacket.NewPublishPacket(messageUnit.Topic, messageUnit.Data, false, QoS, retain, identity)
 		go p.overtimeResendPublish(ctx, resendPacket)
 		p.WaitAck()
 	case protocol.ExactOnce:
-		resendPacket := protocolPacket.NewPublishPacket(messageUnit.Topic, messageUnit.Data, false, QoS, 0, identity)
+		resendPacket := protocolPacket.NewPublishPacket(messageUnit.Topic, messageUnit.Data, false, QoS, retain, identity)
 		go p.overtimeResendPublish(ctx, resendPacket)
 		p.WaitRecAndComp()
 	}

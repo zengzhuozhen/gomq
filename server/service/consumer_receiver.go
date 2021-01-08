@@ -84,17 +84,17 @@ func (r *ConsumerReceiver) ConsumeAndResponse(ctx context.Context, conn net.Conn
 		fmt.Println("返回subAck失败", err)
 	}
 
-	for k := range TopicList {
+	for topicIndex := range TopicList {
 		r.ChanAssemble[connUid] = append(r.ChanAssemble[connUid], make(common.MsgUnitChan))
-		go r.listenMsgChan(ctx, k, connUid, conn)
+		go r.listenMsgChan(ctx, topicIndex, connUid, conn)
 	}
 
 }
 
-func (r *ConsumerReceiver) listenMsgChan(ctx context.Context, k int, connUid string, conn net.Conn) {
+func (r *ConsumerReceiver) listenMsgChan(ctx context.Context, topicIndex int, connUid string, conn net.Conn) {
 	for {
 		select {
-		case msg := <-r.ChanAssemble[connUid][k]:
+		case msg := <-r.ChanAssemble[connUid][topicIndex]:
 			// 防止多个管道同时竞争所有消息的问题,采用客户端连接池进行逻辑隔离解决
 			messagePacket := msg.Pack()
 			messagePacket = append(messagePacket,[]byte{'\n'}...)
@@ -119,10 +119,10 @@ func (r *ConsumerReceiver) CloseConsumer(conn net.Conn, packet *protocolPacket.U
 		topic, _ := utils.DecodeString(conn)
 		// 这里根据consume 连接到server是提供的 topic 列表在pool中顺序排列的特点
 		// 找出此次需要关闭的 topic 通道对应的 key ，需严格保证 Pool 中所有数组顺序排列
-		for k, top := range r.Pool.Topic[connUid] {
+		for topicIndex, top := range r.Pool.Topic[connUid] {
 			if top == topic {
 				fmt.Println("关闭", connUid, "的主题", topic)
-				close(r.ChanAssemble[connUid][k])
+				close(r.ChanAssemble[connUid][topicIndex])
 			}
 		}
 		packet.RemainingLength -= len(topic) + 2

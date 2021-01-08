@@ -17,7 +17,7 @@ func BenchmarkProducer_Publish(b *testing.B) {
 		},
 	}
 	for i := 0; i < b.N; i++ {
-		producer.Publish(mess, 1, 1)
+		producer.Publish(mess, 0, 1)
 	}
 	producer.Close()
 
