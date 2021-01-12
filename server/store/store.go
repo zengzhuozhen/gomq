@@ -1,6 +1,6 @@
 package store
 
-import "gomq/common"
+import "github.com/zengzhuozhen/gomq/common"
 
 
 type Store interface {

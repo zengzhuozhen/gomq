@@ -3,9 +3,9 @@ package packet
 import (
 	"bytes"
 	"fmt"
-	"gomq/common"
-	"gomq/protocol"
-	"gomq/protocol/utils"
+	"github.com/zengzhuozhen/gomq/common"
+	"github.com/zengzhuozhen/gomq/protocol"
+	"github.com/zengzhuozhen/gomq/protocol/utils"
 	"io"
 )
 

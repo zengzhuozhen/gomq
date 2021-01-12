@@ -2,8 +2,8 @@ package packet
 
 import (
 	"bytes"
-	"gomq/protocol"
-	"gomq/protocol/utils"
+	"github.com/zengzhuozhen/gomq/protocol"
+	"github.com/zengzhuozhen/gomq/protocol/utils"
 	"io"
 )
 

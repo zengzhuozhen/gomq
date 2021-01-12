@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 	"go.etcd.io/etcd/clientv3"
-	"gomq/protocol"
-	"gomq/protocol/packet"
-	"gomq/protocol/utils"
+	"github.com/zengzhuozhen/gomq/protocol"
+	"github.com/zengzhuozhen/gomq/protocol/packet"
+	"github.com/zengzhuozhen/gomq/protocol/utils"
 	"reflect"
 )
 

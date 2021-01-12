@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"gomq/common"
+	"github.com/zengzhuozhen/gomq/common"
 	"io/ioutil"
 	"os"
 	"strings"

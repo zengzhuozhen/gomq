@@ -2,10 +2,10 @@ package broker
 
 import (
 	"fmt"
+	"github.com/zengzhuozhen/gomq/common"
+	"github.com/zengzhuozhen/gomq/log"
+	"github.com/zengzhuozhen/gomq/server/service"
 	"golang.org/x/sync/errgroup"
-	"gomq/common"
-	"gomq/log"
-	"gomq/server/service"
 	"net/http"
 	_ "net/http/pprof"
 )

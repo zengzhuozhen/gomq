@@ -2,7 +2,7 @@ package common
 
 import (
 	"github.com/google/uuid"
-	"gomq/protocol/utils"
+	"github.com/zengzhuozhen/gomq/protocol/utils"
 )
 
 type Message struct {

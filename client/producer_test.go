@@ -1,7 +1,7 @@
 package client
 
 import (
-	"gomq/common"
+	"github.com/zengzhuozhen/gomq/common"
 	"testing"
 )
 

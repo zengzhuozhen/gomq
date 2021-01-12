@@ -1,7 +1,7 @@
 package store
 
 import (
-	"gomq/common"
+	"github.com/zengzhuozhen/gomq/common"
 	"sync"
 )
 

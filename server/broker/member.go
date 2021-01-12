@@ -2,10 +2,10 @@ package broker
 
 import (
 	"fmt"
+	"github.com/zengzhuozhen/gomq/client"
+	"github.com/zengzhuozhen/gomq/common"
+	"github.com/zengzhuozhen/gomq/server/store"
 	"golang.org/x/sync/errgroup"
-	"gomq/client"
-	"gomq/common"
-	"gomq/server/store"
 )
 
 type MemberBroker struct {

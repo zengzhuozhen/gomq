@@ -3,9 +3,9 @@ package service
 import (
 	"encoding/json"
 	"fmt"
-	"gomq/cmd/do"
-	"gomq/common"
-	"gomq/protocol/packet"
+	"github.com/zengzhuozhen/gomq/cmd/do"
+	"github.com/zengzhuozhen/gomq/common"
+	"github.com/zengzhuozhen/gomq/protocol/packet"
 	"net/http"
 	"strconv"
 )

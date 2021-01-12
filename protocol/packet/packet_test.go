@@ -1,8 +1,8 @@
 package packet
 
 import (
-	"gomq/protocol"
-	"gomq/protocol/utils"
+	"github.com/zengzhuozhen/gomq/protocol"
+	"github.com/zengzhuozhen/gomq/protocol/utils"
 	"testing"
 )
 

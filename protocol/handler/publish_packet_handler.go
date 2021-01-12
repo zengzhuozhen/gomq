@@ -1,8 +1,8 @@
 package handler
 
 import (
-	"gomq/common"
-	"gomq/protocol/packet"
+	"github.com/zengzhuozhen/gomq/common"
+	"github.com/zengzhuozhen/gomq/protocol/packet"
 )
 
 type PublishPacketHandler interface {

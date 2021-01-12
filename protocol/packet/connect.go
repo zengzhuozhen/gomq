@@ -3,8 +3,8 @@ package packet
 import (
 	"bytes"
 	"fmt"
-	"gomq/protocol"
-	"gomq/protocol/utils"
+	"github.com/zengzhuozhen/gomq/protocol"
+	"github.com/zengzhuozhen/gomq/protocol/utils"
 	"io"
 	"strings"
 )

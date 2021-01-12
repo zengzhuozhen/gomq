@@ -2,11 +2,11 @@ package service
 
 import (
 	"fmt"
-	"gomq/common"
-	"gomq/log"
-	"gomq/protocol"
-	"gomq/protocol/handler"
-	protocolPacket "gomq/protocol/packet"
+	"github.com/zengzhuozhen/gomq/common"
+	"github.com/zengzhuozhen/gomq/log"
+	"github.com/zengzhuozhen/gomq/protocol"
+	"github.com/zengzhuozhen/gomq/protocol/handler"
+	protocolPacket "github.com/zengzhuozhen/gomq/protocol/packet"
 	"net"
 )
 

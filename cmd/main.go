@@ -2,7 +2,7 @@ package main
 
 import (
 	"github.com/urfave/cli/v2"
-	"gomq/cmd/service"
+	"github.com/zengzhuozhen/gomq/cmd/service"
 	"log"
 	"os"
 	"sort"

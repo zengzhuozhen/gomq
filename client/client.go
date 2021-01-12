@@ -2,8 +2,8 @@ package client
 
 import (
 	"fmt"
-	"gomq/protocol"
-	"gomq/protocol/packet"
+	"github.com/zengzhuozhen/gomq/protocol"
+	"github.com/zengzhuozhen/gomq/protocol/packet"
 	"log"
 	"math"
 	"net"

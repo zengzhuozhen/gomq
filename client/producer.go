@@ -3,10 +3,10 @@ package client
 import (
 	"context"
 	"fmt"
-	"gomq/common"
-	"gomq/protocol"
-	protocolPacket "gomq/protocol/packet"
-	"gomq/protocol/utils"
+	"github.com/zengzhuozhen/gomq/common"
+	"github.com/zengzhuozhen/gomq/protocol"
+	protocolPacket "github.com/zengzhuozhen/gomq/protocol/packet"
+	"github.com/zengzhuozhen/gomq/protocol/utils"
 	"log"
 	"time"
 )

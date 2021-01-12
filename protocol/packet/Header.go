@@ -2,7 +2,7 @@ package packet
 
 import (
 	"bytes"
-	"gomq/protocol/utils"
+	"github.com/zengzhuozhen/gomq/protocol/utils"
 	"io"
 )
 

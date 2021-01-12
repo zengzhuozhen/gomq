@@ -3,9 +3,9 @@ package service
 import (
 	"context"
 	"fmt"
-	"gomq/common"
-	protocolPacket "gomq/protocol/packet"
-	"gomq/protocol/utils"
+	"github.com/zengzhuozhen/gomq/common"
+	protocolPacket "github.com/zengzhuozhen/gomq/protocol/packet"
+	"github.com/zengzhuozhen/gomq/protocol/utils"
 	"net"
 	"strings"
 	"sync"

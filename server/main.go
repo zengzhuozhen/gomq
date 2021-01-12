@@ -2,8 +2,8 @@ package main
 
 import (
 	"flag"
-	"gomq/common"
-	"gomq/server/broker"
+	"github.com/zengzhuozhen/gomq/common"
+	"github.com/zengzhuozhen/gomq/server/broker"
 	_ "net/http/pprof"
 )
 

@@ -1,7 +1,7 @@
 package utils
 
 import (
-	"gomq/protocol"
+	"github.com/zengzhuozhen/gomq/protocol"
 	"testing"
 )
 

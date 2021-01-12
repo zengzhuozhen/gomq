@@ -1,9 +1,9 @@
 package service
 
 import (
-	"gomq/common"
-	"gomq/log"
-	protocolPacket "gomq/protocol/packet"
+	"github.com/zengzhuozhen/gomq/common"
+	"github.com/zengzhuozhen/gomq/log"
+	protocolPacket "github.com/zengzhuozhen/gomq/protocol/packet"
 	"net"
 	"time"
 )

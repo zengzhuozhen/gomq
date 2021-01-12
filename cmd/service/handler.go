@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/urfave/cli/v2"
-	"gomq/client"
-	"gomq/cmd/do"
-	"gomq/common"
+	"github.com/zengzhuozhen/gomq/client"
+	"github.com/zengzhuozhen/gomq/cmd/do"
+	"github.com/zengzhuozhen/gomq/common"
 	"strings"
 )
 
