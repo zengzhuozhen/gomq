@@ -1,4 +1,4 @@
-module gomq
+module github.com/zengzhuozhen/gomq
 
 go 1.15
 
