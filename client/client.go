@@ -11,8 +11,6 @@ import (
 	"time"
 )
 
-
-
 type Option struct {
 	Protocol string
 	Address  string
@@ -28,9 +26,7 @@ type client struct {
 	IdentityPool map[int]bool
 }
 
-
-
-func NewClient(opt *Option) *client {
+func newClient(opt *Option) *client {
 	identityPool := make(map[int]bool)
 	for i := 1; i <= math.MaxUint16; i++ { // 非零的16位报文标识符
 		identityPool[i] = true
@@ -42,14 +38,14 @@ func NewClient(opt *Option) *client {
 	}
 }
 
-func (c *client) Connect() error {
+func (c *client) connect() error {
 	conn, err := net.DialTimeout(c.options.Protocol, c.options.Address, time.Duration(c.options.Timeout)*time.Second)
 	if err != nil {
 		log.Fatal(err.Error())
 		return err
 	}
 	c.conn = conn
-	payLoad := packet.NewConnectPayLoad(fmt.Sprint(c.GetAvailableIdentity()), "", "", c.options.Username, c.options.Password)
+	payLoad := packet.NewConnectPayLoad(fmt.Sprint(c.getAvailableIdentity()), "", "", c.options.Username, c.options.Password)
 	connectPack := packet.NewConnectPacket(30, true, payLoad)
 	connectPack.Write(conn)
 
@@ -75,15 +71,13 @@ func (c *client) Connect() error {
 	return nil
 }
 
-
-func (c *client) DisConnect() {
+func (c *client) disConnect() {
 	disConnectPack := packet.NewDisConnectPacketPacket()
 	_ = disConnectPack.Write(c.conn)
 	_ = c.conn.Close()
 }
 
-
-func (c *client) GetAvailableIdentity() uint16 {
+func (c *client) getAvailableIdentity() uint16 {
 	for k, v := range c.IdentityPool {
 		if v == true {
 			c.IdentityPool[k] = false

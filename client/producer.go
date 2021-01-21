@@ -18,8 +18,8 @@ type Producer struct {
 }
 
 func NewProducer(opts *Option) *Producer {
-	client := NewClient(opts)
-	err := client.Connect()
+	client := newClient(opts)
+	err := client.connect()
 	if err != nil {
 		panic("连接服务端失败")
 	}
@@ -29,7 +29,7 @@ func NewProducer(opts *Option) *Producer {
 func (p *Producer) Publish(messageUnit common.MessageUnit, QoS, retain int) {
 	var identity uint16
 	if QoS != protocol.AtMostOnce {
-		identity = p.client.GetAvailableIdentity()
+		identity = p.client.getAvailableIdentity()
 	}
 
 	publishPacket := protocolPacket.NewPublishPacket(messageUnit.Topic, messageUnit.Data, true, QoS, retain, identity)
@@ -149,5 +149,5 @@ func (p *Producer) overtimeResendPubrel(ctx context.Context, pubrelPacket protoc
 }
 
 func (p *Producer) Close() {
-	p.client.DisConnect()
+	p.client.disConnect()
 }

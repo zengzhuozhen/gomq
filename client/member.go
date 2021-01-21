@@ -18,7 +18,7 @@ type Member struct {
 }
 
 func NewMember(opts *Option) *Member {
-	client := NewClient(opts)
+	client := newClient(opts)
 	return &Member{
 		client:          client,
 		opts:            opts,
@@ -29,7 +29,7 @@ func NewMember(opts *Option) *Member {
 }
 
 func (m *Member) SendSync() error {
-	err := m.client.Connect()
+	err := m.client.connect()
 	fmt.Println(m.client.conn.LocalAddr().String())
 	if err != nil {
 		panic("连接Leader失败")
@@ -52,7 +52,7 @@ func (m *Member) SendSyncOffset(duration time.Duration) {
 		select {
 		case <-tickTimer.C:
 			fmt.Println("发送同步消息量数据包")
-			pingReqPack := protocolPacket.NewSyncOffsetPacket(m.SyncOffset, m.client.GetAvailableIdentity())
+			pingReqPack := protocolPacket.NewSyncOffsetPacket(m.SyncOffset, m.client.getAvailableIdentity())
 			pingReqPack.Write(m.client.conn)
 		}
 	}

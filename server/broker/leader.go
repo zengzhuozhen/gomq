@@ -5,7 +5,6 @@ import (
 	"github.com/zengzhuozhen/gomq/common"
 	"github.com/zengzhuozhen/gomq/log"
 	"github.com/zengzhuozhen/gomq/server/service"
-	"golang.org/x/sync/errgroup"
 	"net/http"
 	_ "net/http/pprof"
 )
@@ -19,14 +18,7 @@ func NewLeaderBroker(b *Broker) *LeaderBroker {
 }
 
 func (l *LeaderBroker) Run() {
-	l.wg = errgroup.Group{}
-	l.wg.Go(l.startTcpServer)
-	l.wg.Go(l.startHttpServer)
-	l.wg.Go(l.startPersistent)
-	l.wg.Go(l.startPprof)
-	l.wg.Go(l.handleSignal)
-	l.wg.Go(l.MemberReceiver.Broadcast)
-	_ = l.wg.Wait()
+	l.run(l.startTcpServer, l.startHttpServer, l.startPersistent, l.startPprof, l.handleSignal, l.startBroadcast)
 }
 
 func (l *LeaderBroker) startPersistent() error {
@@ -44,15 +36,15 @@ func (l *LeaderBroker) startPersistent() error {
 
 func (l *LeaderBroker) startTcpServer() error {
 	log.Infof("开启tcp server...")
-	tcp := service.NewTCP(l.opt.endPoint, l.ProducerReceiver, l.ConsumerReceiver, l.MemberReceiver,l.RegisterCenter)
-	tcp.Start()
+	tcpServer := service.NewTCP(l.opt.endPoint, l.ProducerReceiver, l.ConsumerReceiver, l.MemberReceiver, l.RegisterCenter)
+	tcpServer.Start()
 	return nil
 }
 
 func (l *LeaderBroker) startHttpServer() error {
 	log.Infof("开启http server... ")
-	http := service.NewHTTP(l.ProducerReceiver, l.ConsumerReceiver)
-	http.Start()
+	httpServer := service.NewHTTP(l.ProducerReceiver, l.ConsumerReceiver)
+	httpServer.Start()
 	return nil
 }
 
@@ -63,4 +55,9 @@ func (l *LeaderBroker) startPprof() error {
 		fmt.Printf("start pprof failed on %s\n", ip)
 	}
 	return nil
+}
+
+func (l *LeaderBroker) startBroadcast() error {
+	log.Infof("开启broadcast...")
+	return l.MemberReceiver.Broadcast()
 }

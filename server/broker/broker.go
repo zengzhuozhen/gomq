@@ -69,7 +69,7 @@ func NewBroker(opt *option) IBroker {
 
 	queue := common.NewQueue()
 	broker.persistent = store.NewFileStore(broker.opt.dirname)
-	broker.ProducerReceiver = service.NewProducerReceiver(queue, broker.persistent.ReadAll, broker.persistent.Reset,broker.persistent.Cap)
+	broker.ProducerReceiver = service.NewProducerReceiver(queue, broker.persistent.ReadAll, broker.persistent.Reset, broker.persistent.Cap)
 	broker.ConsumerReceiver = service.NewConsumerReceiver(make(map[string][]common.MsgUnitChan))
 	broker.MemberReceiver = service.NewMemberReceiver(queue)
 	broker.FollowersRemote = make(map[string]string)
@@ -144,4 +144,12 @@ func (b *Broker) gracefulStop() error {
 	}
 	b.persistent.Close()
 	return err
+}
+
+func (b *Broker) run(fns ...func() error) {
+	b.wg = errgroup.Group{}
+	for _, fn := range fns {
+		b.wg.Go(fn)
+	}
+	_ = b.wg.Wait()
 }

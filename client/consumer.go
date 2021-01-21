@@ -21,9 +21,9 @@ type Consumer struct {
 }
 
 func NewConsumer(opts *Option) *Consumer {
-	client := NewClient(opts)
+	client := newClient(opts)
 	ctx, cancel := context.WithCancel(context.Background())
-	err := client.Connect()
+	err := client.connect()
 	if err != nil {
 		panic("连接服务端失败")
 	}
@@ -40,12 +40,12 @@ func (c *Consumer) Subscribe(topic []string) <-chan *common.MessageUnit {
 	}
 	MsgUnitChan := make(chan *common.MessageUnit, 1000)
 
-	go c.Heart(3 * time.Second)
-	go c.ReadPacket(MsgUnitChan)
+	go c.heart(3 * time.Second)
+	go c.readPacket(MsgUnitChan)
 	return MsgUnitChan
 }
 
-func (c *Consumer) Heart(duration time.Duration) {
+func (c *Consumer) heart(duration time.Duration) {
 	tickTimer := time.NewTicker(duration)
 	for {
 		select {
@@ -60,7 +60,7 @@ func (c *Consumer) Heart(duration time.Duration) {
 	}
 }
 
-func (c *Consumer) ReadPacket(msgUnitChan chan<- *common.MessageUnit) {
+func (c *Consumer) readPacket(msgUnitChan chan<- *common.MessageUnit) {
 	for {
 		// 读取数据包
 		var fh protocolPacket.FixedHeader
@@ -106,11 +106,11 @@ func (c *Consumer) ReadPacket(msgUnitChan chan<- *common.MessageUnit) {
 }
 
 func (c *Consumer) UnSubscribe(topic []string) {
-	unSubscribePack := protocolPacket.NewUnSubscribePacket(c.client.GetAvailableIdentity(), topic)
+	unSubscribePack := protocolPacket.NewUnSubscribePacket(c.client.getAvailableIdentity(), topic)
 	_ = unSubscribePack.Write(c.client.conn)
 }
 
 func (c *Consumer) Close() {
 	c.cancelFunc()
-	c.client.DisConnect()
+	c.client.disConnect()
 }

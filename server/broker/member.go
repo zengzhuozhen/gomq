@@ -5,7 +5,6 @@ import (
 	"github.com/zengzhuozhen/gomq/client"
 	"github.com/zengzhuozhen/gomq/common"
 	"github.com/zengzhuozhen/gomq/server/store"
-	"golang.org/x/sync/errgroup"
 )
 
 type MemberBroker struct {
@@ -17,16 +16,16 @@ func NewMemberBroker(b *Broker) *MemberBroker {
 }
 
 func (m MemberBroker) Run() {
+	m.run(m.startSendSync, m.startPersistent, m.handleSignal)
+}
+
+func (m *MemberBroker) startSendSync() error {
 	m.memberClient = client.NewMember(&client.Option{
 		Protocol: "tcp",
 		Address:  m.LeaderAddress,
 		Timeout:  3,
 	})
-	m.wg = errgroup.Group{}
-	m.wg.Go(m.memberClient.SendSync)
-	m.wg.Go(m.startPersistent)
-	m.wg.Go(m.handleSignal)
-	m.wg.Wait()
+	return m.memberClient.SendSync()
 }
 
 func (m *MemberBroker) startPersistent() error {
