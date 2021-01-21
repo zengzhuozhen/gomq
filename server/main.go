@@ -22,7 +22,6 @@ func init() {
 
 
 // todo 零拷贝 copyBuffer , impl writeTo and ReadFrom
-// todo 随着Server端接收到的publish包的数量增加，publish操作会变慢，已知与写入日志文件没有关系，待解决
 func main() {
 	flag.Parse()
 	opts := broker.NewOption(broker.Leader, *endpoint, *dirname, []string{etcdurl})
