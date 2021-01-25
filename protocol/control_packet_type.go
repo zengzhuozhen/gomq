@@ -32,10 +32,8 @@ const (
 	ExactOnce
 )
 
-	//DUP1  重发标志 DUP
-	//QoS2  服务质量等级 QoS
-	//RETAIN3 保留标志 RETAIN
 const (
+	// Connect包验证错误
 	ConnectAccess = iota
 	UnSupportProtocolVersion
 	UnSupportClientIdentity
@@ -43,4 +41,5 @@ const (
 	UserAndPassError
 	UnAuthorization
 )
+
 

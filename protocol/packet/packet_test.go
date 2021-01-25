@@ -15,24 +15,31 @@ var ConnectFlagTests = []struct {
 	WillFlag     bool
 	WillQos      bool
 	WillRetain   bool
-	UserName     bool
-	Password     bool
+	UserNameFlag bool
+	PasswordFlag bool
 	out          byte
 }{
 	{false, false, false, false, false, false, 0},
-	{true, false, false, false, false, false, 1},
-	{false, true, false, false, false, false, 2},
-	{false, false, true, false, false, false, 12},
-	{false, false, false, true, false, false, 16},
-	{false, false, false, false, false, true, 32},
-	{false, false, false, false, true, false, 64},
+	{true, false, false, false, false, false, 2},
+	{false, true, false, false, false, false, 4},
+	{false, false, true, false, false, false, 24},
+	{false, false, false, true, false, false, 32},
+	{false, false, false, false, false, true, 64},
+	{false, false, false, false, true, false, 128},
 }
 
 func TestEncodeConnectFlag(t *testing.T) {
 	for i, tt := range ConnectFlagTests {
-		s := EncodeConnectFlag(tt.CleanSession, tt.WillFlag, tt.WillQos, tt.WillRetain, tt.UserName, tt.Password)
-		if s != tt.out {
-			t.Errorf("%d => %q, wanted: %q", i, s, tt.out)
+		connectFlag := ConnectFlags{
+			CleanSession: tt.CleanSession,
+			WillFlag:     tt.WillFlag,
+			WillQos:      tt.WillQos,
+			WillRetain:   tt.WillRetain,
+			UserNameFlag: tt.UserNameFlag,
+			PasswordFlag: tt.PasswordFlag,
+		}
+		if connectFlag.encode() != tt.out {
+			t.Errorf("%d => %q, wanted: %q", i, connectFlag.encode(), tt.out)
 		}
 	}
 }

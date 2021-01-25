@@ -29,14 +29,14 @@ func (l *LeaderBroker) startPersistent() error {
 		log.Debugf("接收到持久化消息单元")
 		l.persistent.Open(data.Topic)
 		l.persistent.Append(data)
-		l.MemberReceiver.HP += 100 // 自己做了持久化，更新高水位线，基于内存的无效
+		l.MemberReceiver.HP ++ // 自己做了持久化，更新高水位线，基于内存的无效
 		l.MemberReceiver.BroadcastChan <- data
 	}
 }
 
 func (l *LeaderBroker) startTcpServer() error {
 	log.Infof("开启tcp server...")
-	tcpServer := service.NewTCP(l.opt.endPoint, l.ProducerReceiver, l.ConsumerReceiver, l.MemberReceiver, l.RegisterCenter)
+	tcpServer := service.NewTCP(l.opt.endPoint, l.ProducerReceiver, l.ConsumerReceiver, l.MemberReceiver, l.RegisterCenter,l.session)
 	tcpServer.Start()
 	return nil
 }

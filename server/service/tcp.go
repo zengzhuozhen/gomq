@@ -2,12 +2,13 @@ package service
 
 import (
 	"context"
-	"go.etcd.io/etcd/clientv3"
+	"github.com/zengzhuozhen/gomq/common"
 	"github.com/zengzhuozhen/gomq/log"
 	"github.com/zengzhuozhen/gomq/protocol"
-	"github.com/zengzhuozhen/gomq/protocol/handler"
 	protocolPacket "github.com/zengzhuozhen/gomq/protocol/packet"
 	"github.com/zengzhuozhen/gomq/protocol/utils"
+	"github.com/zengzhuozhen/gomq/protocol/visit"
+	"go.etcd.io/etcd/clientv3"
 	"io"
 	"net"
 	"sync"
@@ -21,9 +22,10 @@ type TCP struct {
 	*ConsumerReceiver
 	*MemberReceiver
 	etcdClient *clientv3.Client
+	session    map[string]*common.ServerState
 }
 
-func NewTCP(address string, PR *ProducerReceiver, CR *ConsumerReceiver, MR *MemberReceiver, client *clientv3.Client) *TCP {
+func NewTCP(address string, PR *ProducerReceiver, CR *ConsumerReceiver, MR *MemberReceiver, client *clientv3.Client, session map[string]*common.ServerState) *TCP {
 	return &TCP{
 		protocol:         "tcp",
 		address:          address,
@@ -31,6 +33,7 @@ func NewTCP(address string, PR *ProducerReceiver, CR *ConsumerReceiver, MR *Memb
 		ConsumerReceiver: CR,
 		MemberReceiver:   MR,
 		etcdClient:       client,
+		session:          session,
 	}
 }
 
@@ -67,11 +70,11 @@ func (tcp *TCP) startConnLoop() error {
 			var wg sync.WaitGroup
 			for topicIndex, topic := range topicList {
 				wg.Add(1)
-				go func(topicIndex int,topic string) {
+				go func(topicIndex int, topic string) {
 					tcp.popRetainQueue(uid, topic, topicIndex)
 					tcp.popQueue(uid, topic, topicIndex)
 					wg.Done()
-				}(topicIndex,topic)
+				}(topicIndex, topic)
 			}
 			wg.Wait()
 		}
@@ -154,22 +157,15 @@ func (tcp *TCP) handleConnectProtocol(conn net.Conn) bool {
 		conn.Close()
 		return false
 	}
-
-	connectFlags, payLoad := connPacket.ProvisionConnectFlagsAndPayLoad()
-	connectPacketHandler := handler.NewConnectPacketHandle(&connPacket, connectFlags, payLoad, tcp.etcdClient)
-	err = connectPacketHandler.HandleAll()
-	if err != nil {
-		conn.Close()
-		// 判断错误类型，适时发responseAck
-		errorType := connectPacketHandler.ErrorTypeToAck()
-		if errorType != 0 {
-			responseConnectAck(conn, errorType)
-		}
+	if err = visit.NewConnectPacketVisitor(&visit.PacketVisitor{Packet: &connPacket}).Visit(func(packet protocolPacket.ControlPacket) error {
+		// 正常连接，返回连接成功ack
+		responseConnectAck(conn, protocol.ConnectAccess)
+		return nil
+	}); err != nil {
+		// todo 返回连接失败错误码
+		responseConnectAck(conn, 1)
 		return false
 	}
-
-	// 返回ack
-	responseConnectAck(conn, protocol.ConnectAccess)
 	return true
 }
 

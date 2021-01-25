@@ -5,8 +5,8 @@ import (
 	"github.com/zengzhuozhen/gomq/common"
 	"github.com/zengzhuozhen/gomq/log"
 	"github.com/zengzhuozhen/gomq/protocol"
-	"github.com/zengzhuozhen/gomq/protocol/handler"
 	protocolPacket "github.com/zengzhuozhen/gomq/protocol/packet"
+	"github.com/zengzhuozhen/gomq/protocol/visit"
 	"net"
 )
 
@@ -16,31 +16,29 @@ type ProducerReceiver struct {
 	tempPublishPool map[int]protocolPacket.PublishPacket
 }
 
-func NewProducerReceiver(queue *common.Queue,readAllFunc func(topic string) []common.MessageUnit, resetFunc func(topic string),capFunc func(topic string)int) *ProducerReceiver {
+func NewProducerReceiver(queue *common.Queue, readAllFunc func(topic string) []common.MessageUnit, resetFunc func(topic string), capFunc func(topic string) int) *ProducerReceiver {
 	return &ProducerReceiver{
 		Queue:           queue,
-		RetainQueue:     common.NewRetainQueue(readAllFunc, resetFunc,capFunc),
+		RetainQueue:     common.NewRetainQueue(readAllFunc, resetFunc, capFunc),
 		tempPublishPool: make(map[int]protocolPacket.PublishPacket),
 	}
 }
 
 func (p *ProducerReceiver) ProduceAndResponse(conn net.Conn, publishPacket *protocolPacket.PublishPacket) {
-	publishPacketHandler := handler.NewPublishPacketHandle(publishPacket)
-	publishPacketHandler.CheckAll()
-	publishPacketHandler.HandleDup()
-	publishPacketHandler.HandleRetain(p.RetainQueue)
-
-	switch publishPacketHandler.ReturnQoS() {
-	case protocol.AtMostOnce:
-		p.toQueue(publishPacket) // 最多一次，直接存
-	case protocol.AtLeastOnce:
-		p.toQueue(publishPacket) // 最少一次,直接存
-		p.responsePubAck(conn, publishPacket.PacketIdentifier)
-	case protocol.ExactOnce: // 精确一次，这里先不存
-		p.responsePubRec(conn, publishPacket)
-	}
+	_ = visit.NewPublishPacketVisitor(&visit.PacketVisitor{Packet: publishPacket}, p.RetainQueue).
+		Visit(func(packet protocolPacket.ControlPacket) error {
+			switch publishPacket.QoS() {
+			case protocol.AtMostOnce:
+				p.toQueue(publishPacket) // 最多一次，直接存
+			case protocol.AtLeastOnce:
+				p.toQueue(publishPacket) // 最少一次,直接存
+				p.responsePubAck(conn, publishPacket.PacketIdentifier)
+			case protocol.ExactOnce: // 精确一次，这里先不存
+				p.responsePubRec(conn, publishPacket)
+			}
+			return nil
+		})
 }
-
 
 func (p *ProducerReceiver) toQueue(publishPacket *protocolPacket.PublishPacket) {
 	message := new(common.Message)

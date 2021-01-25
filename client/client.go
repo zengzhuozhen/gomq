@@ -1,10 +1,11 @@
 package client
 
 import (
-	"fmt"
+	"github.com/google/uuid"
+	"github.com/zengzhuozhen/gomq/common"
+	"github.com/zengzhuozhen/gomq/log"
 	"github.com/zengzhuozhen/gomq/protocol"
-	"github.com/zengzhuozhen/gomq/protocol/packet"
-	"log"
+	protocolPacket "github.com/zengzhuozhen/gomq/protocol/packet"
 	"math"
 	"net"
 	"sync"
@@ -24,6 +25,7 @@ type client struct {
 	optionsMu    sync.Mutex
 	conn         net.Conn
 	IdentityPool map[int]bool
+	session      *common.ClientState
 }
 
 func newClient(opt *Option) *client {
@@ -35,44 +37,48 @@ func newClient(opt *Option) *client {
 		options:      opt,
 		optionsMu:    sync.Mutex{},
 		IdentityPool: identityPool,
+		session: &common.ClientState{
+			Pub: make(map[uint16]interface{}),
+			Rel: make(map[uint16]interface{}),
+			Rec: make(map[uint16]interface{}),
+		},
 	}
 }
 
 func (c *client) connect() error {
 	conn, err := net.DialTimeout(c.options.Protocol, c.options.Address, time.Duration(c.options.Timeout)*time.Second)
 	if err != nil {
-		log.Fatal(err.Error())
+		log.Errorf(err.Error())
 		return err
 	}
 	c.conn = conn
-	payLoad := packet.NewConnectPayLoad(fmt.Sprint(c.getAvailableIdentity()), "", "", c.options.Username, c.options.Password)
-	connectPack := packet.NewConnectPacket(30, true, payLoad)
+	payLoad := protocolPacket.NewConnectPayLoad(uuid.New().String(), "", "", c.options.Username, c.options.Password)
+	connectPack := protocolPacket.NewConnectPacket(30, false, payLoad)
 	connectPack.Write(conn)
 
-	var fh packet.FixedHeader
-	var connAckPacket packet.ConnAckPacket
+	var fh protocolPacket.FixedHeader
+	var connAckPacket protocolPacket.ConnAckPacket
 
 	if err := fh.Read(conn); err != nil {
-		fmt.Println("接收connAck包头内容错误", err)
+		log.Errorf("接收connAck包头内容错误", err)
 		return err
 	}
 	err = connAckPacket.Read(conn, fh)
 	if err != nil {
-		log.Fatal("读取connAck数据包内容错误", err)
+		log.Errorf("读取connAck数据包内容错误", err)
 		return err
 	}
 
 	if connAckPacket.ConnectReturnCode != protocol.ConnectAccess {
-		log.Fatal("服务器拒绝连接，code:", connAckPacket.ConnectReturnCode)
+		log.Errorf("服务器拒绝连接，code:", connAckPacket.ConnectReturnCode)
 		conn.Close()
 	}
-	fmt.Println("接收返回报文 connectAck, return code:", connAckPacket.ConnectReturnCode)
-
+	log.Infof("接收返回报文 connectAck, return code:", connAckPacket.ConnectReturnCode)
 	return nil
 }
 
 func (c *client) disConnect() {
-	disConnectPack := packet.NewDisConnectPacketPacket()
+	disConnectPack := protocolPacket.NewDisConnectPacketPacket()
 	_ = disConnectPack.Write(c.conn)
 	_ = c.conn.Close()
 }
@@ -85,4 +91,38 @@ func (c *client) getAvailableIdentity() uint16 {
 		}
 	}
 	return 0
+}
+
+func (c *client) cleanSession() {
+	c.session = &common.ClientState{
+		Pub: make(map[uint16]interface{}),
+		Rel: make(map[uint16]interface{}),
+		Rec: make(map[uint16]interface{}),
+	}
+}
+
+func (c *client) saveToSession(packet protocolPacket.ControlPacket) {
+	switch packet.(type) {
+	case *protocolPacket.PublishPacket:
+		pubPacket := packet.(*protocolPacket.PublishPacket)
+		c.session.Pub[pubPacket.PacketIdentifier] = *pubPacket
+	case *protocolPacket.PubRelPacket:
+		relPacket := packet.(*protocolPacket.PubRelPacket)
+		c.session.Rel[relPacket.PacketIdentifier] = *relPacket
+	case *protocolPacket.PubRecPacket:
+		recPacket := packet.(*protocolPacket.PubRecPacket)
+		c.session.Rec[recPacket.PacketIdentifier] = *recPacket
+	}
+}
+
+func (c *client) deleteFromSession(packet protocolPacket.ControlPacket) {
+	switch packet.(type) {
+	case *protocolPacket.PubAckPacket:
+		ackPacket := packet.(*protocolPacket.PubAckPacket)
+		delete(c.session.Pub, ackPacket.PacketIdentifier)
+	case *protocolPacket.PubCompPacket:
+		compPacket := packet.(*protocolPacket.PubCompPacket)
+		delete(c.session.Rec, compPacket.PacketIdentifier)
+		delete(c.session.Rel, compPacket.PacketIdentifier)
+	}
 }

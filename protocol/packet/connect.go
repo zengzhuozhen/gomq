@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/zengzhuozhen/gomq/protocol"
 	"github.com/zengzhuozhen/gomq/protocol/utils"
+	"github.com/zengzhuozhen/gomq/protocol/visit"
 	"io"
 	"strings"
 )
@@ -19,7 +20,7 @@ type ConnectPacket struct {
 }
 
 type ConnectFlags struct {
-	CleanSession bool	// todo 为true,则每次连接都是新的连接，为fasle，连接后需要处理旧的数据(qos相关)
+	CleanSession bool // todo 为true,则每次连接都是新的连接，为fasle，连接后需要处理旧的数据(qos相关)
 	WillFlag     bool
 	WillQos      bool
 	WillRetain   bool
@@ -28,16 +29,16 @@ type ConnectFlags struct {
 }
 
 type ConnectPacketPayLoad struct {
-	identifier  string
+	clientId    string // 客户端标识，非报文标识符
 	willTopic   string
 	willMessage string
 	userName    string
 	password    string
 }
 
-func NewConnectPayLoad(identity,willTopic,willMessage,userName,password string) *ConnectPacketPayLoad {
+func NewConnectPayLoad(clientId, willTopic, willMessage, userName, password string) *ConnectPacketPayLoad {
 	return &ConnectPacketPayLoad{
-		identifier:  identity,
+		clientId:    clientId,
 		willTopic:   willTopic,
 		willMessage: willMessage,
 		userName:    userName,
@@ -102,7 +103,7 @@ func (c *ConnectPacket) Write(w io.Writer) error {
 
 // 如果发现不支持的协议级别，服务端必须给发送一个返回码为0x01（不支持的协议级别）的CONNACK报文响应CONNECT报文，然后断开客户端的连接
 func (c *ConnectPacket) IsSuitableProtocolLevel() bool {
-	return c.ProtocolLevel != 4
+	return c.ProtocolLevel == 4
 }
 
 // 服务端必须判断 reserved 是否为0，不为0就要断开客户端连接
@@ -110,9 +111,9 @@ func (c *ConnectPacket) IsReserved() bool {
 	return c.ConnectFlags%2 == 0
 }
 
-func (c *ConnectPacketPayLoad) IsLegalIdentifier() bool {
+func (c *ConnectPacketPayLoad) IsLegalClientId() bool {
 	mode := "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-	for i := range c.identifier {
+	for _, i := range c.clientId {
 		if !strings.Contains(mode, string(i)) {
 			return false
 		}
@@ -125,8 +126,11 @@ func (c *ConnectPacketPayLoad) IsAuthorizedClient() bool {
 	return true
 }
 
-func (c *ConnectPacketPayLoad) IsCorrectSecret(username string, password string) bool {
-	return username == c.userName && password == c.password
+func (c *ConnectPacketPayLoad) IsCorrectSecret(getSecretFunc func(string) string) bool {
+	if c.userName == ""{
+		return true
+	}
+	return  getSecretFunc(c.userName) == c.password
 }
 
 // 根据 connectPacket包提取 connectFlags 和 payLoad 结构
@@ -138,59 +142,64 @@ func (c *ConnectPacket) ProvisionConnectFlagsAndPayLoad() (*ConnectFlags, *Conne
 	return connectFlags, payLoad
 }
 
-// todo 清理会话 Clean Session 	位置：连接标志字节的第1位     +1
-// todo 遗嘱标志 Will Flag 		位置：连接标志的第2位。	   +2
-// todo 遗嘱QoS Will QoS			位置：连接标志的第4和第3位。   +4 +8
-// todo 遗嘱保留 Will Retain	   	位置：连接标志的第5位。	   +16
-// todo 密码标志 password Flag   位置：连接标志的第6位。	   +32
-// todo 用户名标志 User Name Flag 位置：连接标志的第7位。	   +64
+func (c *ConnectPacket) Visit(fn visit.VisitorFunc) error {
+	return fn(c)
+}
+
+// 保留位 Reserved  			位置：连接标志字节的第0位
+// 清理会话 Clean Session 	位置：连接标志字节的第1位      +2
+// 遗嘱标志 Will Flag 		位置：连接标志的第2位。	    +4
+// 遗嘱QoS Will QoS			位置：连接标志的第4和第3位。   +8 +16
+// 遗嘱保留 Will Retain	   	位置：连接标志的第5位。	   +32
+// 密码标志 password Flag    位置：连接标志的第6位。	   +64
+// 用户名标志 User Name Flag 位置：连接标志的第7位。	   	   +128
 
 func (c *ConnectFlags) encode() byte {
 	res := byte(0)
 	if c.CleanSession {
-		res += 1
-	}
-	if c.WillFlag {
 		res += 1 << 1
 	}
+	if c.WillFlag {
+		res += 1 << 2
+	}
 	if c.WillQos {
-		res += 1<<2 + 1<<3
+		res += 1<<3 + 1<<4
 	}
 	if c.WillRetain {
-		res += 1 << 4
-	}
-	if c.PasswordFlag {
 		res += 1 << 5
 	}
-	if c.UserNameFlag {
+	if c.PasswordFlag {
 		res += 1 << 6
+	}
+	if c.UserNameFlag {
+		res += 1 << 7
 	}
 	return res
 }
 
 func (c *ConnectFlags) decode(b byte) () {
+	if b >= 128 {
+		b -= 128
+		c.UserNameFlag = true
+	}
 	if b >= 64 {
 		b -= 64
-		c.UserNameFlag = true
+		c.PasswordFlag = true
 	}
 	if b >= 32 {
 		b -= 32
-		c.PasswordFlag = true
+		c.WillRetain = true
 	}
 	if b >= 16 {
 		b -= 16
-		c.WillRetain = true
+		c.WillQos = true
 	}
 	if b >= 12 {
 		b -= 12
-		c.WillQos = true
+		c.WillFlag = true
 	}
 	if b >= 2 {
 		b -= 2
-		c.WillFlag = true
-	}
-	if b >= 1 {
-		b -= 1
 		c.CleanSession = true
 	}
 	return
@@ -201,7 +210,7 @@ func (payLoad ConnectPacketPayLoad) encode(cleanSession bool) (*ConnectFlags, []
 	connectFlag := new(ConnectFlags)
 	connectFlag.CleanSession = cleanSession
 
-	temp := utils.EncodeString(payLoad.identifier)
+	temp := utils.EncodeString(payLoad.clientId)
 	payLoadData = append(payLoadData, temp...)
 
 	if payLoad.willTopic != "" && payLoad.willMessage != "" {
@@ -228,7 +237,7 @@ func (payLoad ConnectPacketPayLoad) decode(payLoadData []byte, flags ConnectFlag
 	var err error
 	buffer := new(bytes.Buffer)
 	buffer.Write(payLoadData)
-	payLoad.identifier, err = utils.DecodeString(buffer)
+	payLoad.clientId, err = utils.DecodeString(buffer)
 	if flags.WillFlag {
 		payLoad.willTopic, err = utils.DecodeString(buffer)
 		payLoad.willMessage, err = utils.DecodeString(buffer)

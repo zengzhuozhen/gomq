@@ -83,9 +83,3 @@ func (p *PublishPacket) Write(w io.Writer) error {
 	_, err = w.Write(packet.Bytes())
 	return err
 }
-
-func (p *PublishPacket) IsLegalQos() {
-	if p.FixedHeader.QoS() >= 3 {
-		panic("非法的QoS标识，需要关闭连接")
-	}
-}

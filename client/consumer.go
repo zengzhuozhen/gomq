@@ -2,8 +2,8 @@ package client
 
 import (
 	"context"
-	"fmt"
 	"github.com/zengzhuozhen/gomq/common"
+	"github.com/zengzhuozhen/gomq/log"
 	"github.com/zengzhuozhen/gomq/protocol"
 	protocolPacket "github.com/zengzhuozhen/gomq/protocol/packet"
 	"github.com/zengzhuozhen/gomq/protocol/utils"
@@ -36,7 +36,7 @@ func (c *Consumer) Subscribe(topic []string) <-chan *common.MessageUnit {
 	subscribePacket := protocolPacket.NewSubscribePacket(0, topic, 0)
 	err := subscribePacket.Write(c.client.conn)
 	if err != nil {
-		fmt.Println("客户端订阅主题失败:发送subscribe")
+		log.Errorf("客户端订阅主题失败:发送subscribe")
 	}
 	MsgUnitChan := make(chan *common.MessageUnit, 1000)
 
@@ -50,11 +50,11 @@ func (c *Consumer) heart(duration time.Duration) {
 	for {
 		select {
 		case <-tickTimer.C:
-			fmt.Println("发送心跳包")
+			log.Infof("发送心跳包")
 			pingReqPack := protocolPacket.NewPingReqPacket()
 			pingReqPack.Write(c.client.conn)
 		case <-c.ctx.Done():
-			fmt.Println("停止发送心跳")
+			log.Infof("停止发送心跳")
 			return
 		}
 	}
@@ -67,7 +67,7 @@ func (c *Consumer) readPacket(msgUnitChan chan<- *common.MessageUnit) {
 		var packet protocolPacket.ControlPacket
 
 		if err := fh.Read(c.client.conn); err != nil {
-			fmt.Printf("读取包头失败%+v", err)
+			log.Errorf("读取包头失败%+v", err)
 			return
 		}
 		switch utils.DecodePacketType(fh.TypeAndReserved) {
@@ -75,21 +75,21 @@ func (c *Consumer) readPacket(msgUnitChan chan<- *common.MessageUnit) {
 			packet = &protocolPacket.SubAckPacket{}
 			err := packet.Read(c.client.conn, fh)
 			if err != nil {
-				fmt.Println("客户端订阅主题失败")
+				log.Errorf("客户端订阅主题失败")
 				c.client.conn.Close()
 			} else {
-				fmt.Println("收到服务端确认订阅消息")
+				log.Infof("收到服务端确认订阅消息")
 			}
 		case byte(protocol.UNSUBACK):
 			packet = &protocolPacket.UnSubAckPacket{}
 			err := packet.Read(c.client.conn, fh)
 			if err != nil {
-				fmt.Println("客户端取消订阅主题失败")
+				log.Errorf("客户端取消订阅主题失败")
 			} else {
-				fmt.Println("收到服务端确认取消订阅")
+				log.Infof("收到服务端确认取消订阅")
 			}
 		case byte(protocol.PINGRESP):
-			fmt.Println("收到服务端心跳回应")
+			log.Infof("收到服务端心跳回应")
 		default:
 			// 普通消息
 			messByte := make([]byte, 4096) // todo fix:这里可能由于粘包导致超出slice长度
