@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/zengzhuozhen/gomq/protocol"
 	"github.com/zengzhuozhen/gomq/protocol/utils"
-	"github.com/zengzhuozhen/gomq/protocol/visit"
 	"io"
 	"strings"
 )
@@ -142,7 +141,7 @@ func (c *ConnectPacket) ProvisionConnectFlagsAndPayLoad() (*ConnectFlags, *Conne
 	return connectFlags, payLoad
 }
 
-func (c *ConnectPacket) Visit(fn visit.VisitorFunc) error {
+func (c *ConnectPacket) Visit(fn VisitorFunc) error {
 	return fn(c)
 }
 

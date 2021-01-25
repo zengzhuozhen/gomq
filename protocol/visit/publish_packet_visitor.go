@@ -7,10 +7,10 @@ import (
 )
 
 type PublishPacketVisitor struct {
-	filterVisitor Visitor
+	filterVisitor packet.Visitor
 }
 
-func (v *PublishPacketVisitor) Visit(fn VisitorFunc) error {
+func (v *PublishPacketVisitor) Visit(fn packet.VisitorFunc) error {
 	return v.filterVisitor.Visit(fn)
 }
 
@@ -18,10 +18,10 @@ type container struct {
 	retainQueue *common.RetainQueue
 }
 
-func NewPublishPacketVisitor(visitor Visitor,queue *common.RetainQueue) *PublishPacketVisitor {
+func NewPublishPacketVisitor(visitor packet.Visitor,queue *common.RetainQueue) *PublishPacketVisitor {
 	rqc := container{retainQueue: queue}
 	return &PublishPacketVisitor{
-		filterVisitor: NewFilteredVisitor(visitor,
+		filterVisitor: packet.NewFilteredVisitor(visitor,
 			qosValidate,
 			handleDup,
 			rqc.handleRetain,

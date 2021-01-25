@@ -13,16 +13,16 @@ import (
 
 
 type ConnectPacketVisitor struct {
-	filterVisitor Visitor
+	filterVisitor packet.Visitor
 }
 
-func (v *ConnectPacketVisitor) Visit(fn VisitorFunc) error {
+func (v *ConnectPacketVisitor) Visit(fn packet.VisitorFunc) error {
 	return v.filterVisitor.Visit(fn)
 }
 
-func NewConnectPacketVisitor(visitor Visitor) *ConnectPacketVisitor {
+func NewConnectPacketVisitor(visitor packet.Visitor) *ConnectPacketVisitor {
 	return &ConnectPacketVisitor{
-		filterVisitor: NewFilteredVisitor(visitor,
+		filterVisitor: packet.NewFilteredVisitor(visitor,
 			protocolNameValidate,
 			protocolLevelValidate,
 			handleConnectFlag,

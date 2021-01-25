@@ -1,6 +1,4 @@
-package visit
-
-import "github.com/zengzhuozhen/gomq/protocol/packet"
+package packet
 
 // k8s visitor implement
 
@@ -8,7 +6,7 @@ type Visitor interface {
 	Visit(VisitorFunc) error
 }
 
-type VisitorFunc func(packet.ControlPacket) error
+type VisitorFunc func(ControlPacket) error
 
 type VisitorList []Visitor
 
@@ -27,7 +25,7 @@ type DecoratedVisitor struct {
 }
 
 func (v DecoratedVisitor) Visit(fn VisitorFunc) error {
-	return v.visitor.Visit(func(packet packet.ControlPacket) error {
+	return v.visitor.Visit(func(packet ControlPacket) error {
 		for i := range v.decorators {
 			if err := v.decorators[i](packet); err != nil {
 				return err
@@ -50,7 +48,7 @@ type FilteredVisitor struct {
 }
 
 func (v FilteredVisitor) Visit(fn VisitorFunc) error {
-	return v.visitor.Visit(func(packet packet.ControlPacket) error {
+	return v.visitor.Visit(func(packet ControlPacket) error {
 		for _, filter := range v.filters {
 			err := filter(packet)
 			if err != nil {

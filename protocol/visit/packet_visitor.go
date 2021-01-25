@@ -6,6 +6,6 @@ type PacketVisitor struct {
 	Packet packet.ControlPacket
 }
 
-func (p *PacketVisitor) Visit(fn VisitorFunc) error {
+func (p *PacketVisitor) Visit(fn packet.VisitorFunc) error {
 	return fn(p.Packet)
 }
