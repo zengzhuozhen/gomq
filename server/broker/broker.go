@@ -22,24 +22,43 @@ const LeaderId = "/service/mq/broker_leader_id"
 const LeaderPath = "/services/mq/broker_leader"
 const FollowerPath = "/services/mq/broker_follower/"
 
+type serverType int32
+
 const (
-	Leader = iota
-	Member
+	Leader serverType = 1
+	Member serverType = 2
 )
 
 type option struct {
-	identity int
+	identity serverType
 	endPoint string
 	etcdUrls []string
 	dirname  string
 }
 
-func NewOption(identity int, endPoint, dirname string, etcdUrls []string) *option {
-	return &option{
-		identity: identity,
-		endPoint: endPoint,
-		etcdUrls: etcdUrls,
-		dirname:  dirname,
+type Option func(broker *Broker)
+
+func ServerType(serverType serverType) Option {
+	return func(broker *Broker) {
+		broker.opt.identity = serverType
+	}
+}
+
+func EndPoint(endpoint string) Option {
+	return func(broker *Broker) {
+		broker.opt.endPoint = endpoint
+	}
+}
+
+func EtcdUrl(etcdUrl []string) Option {
+	return func(broker *Broker) {
+		broker.opt.etcdUrls = etcdUrl
+	}
+}
+
+func Dirname(dirname string) Option {
+	return func(broker *Broker) {
+		broker.opt.dirname = dirname
 	}
 }
 
@@ -49,6 +68,7 @@ type IBroker interface {
 
 type Broker struct {
 	brokerId         string
+	serverType       serverType
 	opt              *option
 	wg               errgroup.Group
 	ProducerReceiver *service.ProducerReceiver
@@ -64,14 +84,15 @@ type Broker struct {
 	memberClient *client.Member // 作为Member启动时持有的客户端
 }
 
-func NewBroker(opt *option) IBroker {
+func NewBroker(options ...Option) IBroker {
 	broker := new(Broker)
 	broker.brokerId = uuid.New().String()
-	broker.opt = opt
-
+	for _, option := range options {
+		option(broker)
+	}
 	queue := common.NewQueue()
 	broker.persistent = store.NewFileStore(broker.opt.dirname)
-	broker.ProducerReceiver = service.NewProducerReceiver(queue, broker.persistent.ReadAll, broker.persistent.Reset, broker.persistent.Cap)
+	broker.ProducerReceiver = service.NewProducerReceiver(queue, broker.persistent)
 	broker.ConsumerReceiver = service.NewConsumerReceiver(make(map[string][]common.MsgUnitChan))
 	broker.MemberReceiver = service.NewMemberReceiver(queue)
 	broker.FollowersRemote = make(map[string]string)
@@ -85,7 +106,6 @@ func NewBroker(opt *option) IBroker {
 	} else {
 		return NewMemberBroker(broker)
 	}
-
 }
 
 func (b *Broker) register() {

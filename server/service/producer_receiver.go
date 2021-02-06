@@ -7,6 +7,7 @@ import (
 	"github.com/zengzhuozhen/gomq/protocol"
 	protocolPacket "github.com/zengzhuozhen/gomq/protocol/packet"
 	"github.com/zengzhuozhen/gomq/protocol/visit"
+	"github.com/zengzhuozhen/gomq/server/store"
 	"net"
 )
 
@@ -16,10 +17,10 @@ type ProducerReceiver struct {
 	tempPublishPool map[int]protocolPacket.PublishPacket
 }
 
-func NewProducerReceiver(queue *common.Queue, readAllFunc func(topic string) []common.MessageUnit, resetFunc func(topic string), capFunc func(topic string) int) *ProducerReceiver {
+func NewProducerReceiver(queue *common.Queue, store store.Store) *ProducerReceiver {
 	return &ProducerReceiver{
 		Queue:           queue,
-		RetainQueue:     common.NewRetainQueue(readAllFunc, resetFunc, capFunc),
+		RetainQueue:     common.NewRetainQueue(store.ReadAll, store.Reset, store.Cap),
 		tempPublishPool: make(map[int]protocolPacket.PublishPacket),
 	}
 }

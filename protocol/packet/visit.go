@@ -26,12 +26,16 @@ type DecoratedVisitor struct {
 
 func (v DecoratedVisitor) Visit(fn VisitorFunc) error {
 	return v.visitor.Visit(func(packet ControlPacket) error {
+		err := fn(packet)
+		if err != nil {
+			return err
+		}
 		for i := range v.decorators {
 			if err := v.decorators[i](packet); err != nil {
 				return err
 			}
 		}
-		return fn(packet)
+		return nil
 	})
 }
 

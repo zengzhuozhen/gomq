@@ -19,12 +19,12 @@ type container struct {
 }
 
 func NewPublishPacketVisitor(visitor packet.Visitor,queue *common.RetainQueue) *PublishPacketVisitor {
-	rqc := container{retainQueue: queue}
+	container := container{retainQueue: queue}
 	return &PublishPacketVisitor{
 		filterVisitor: packet.NewFilteredVisitor(visitor,
 			qosValidate,
 			handleDup,
-			rqc.handleRetain,
+			container.handleRetain,
 		),
 	}
 }

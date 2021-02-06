@@ -7,10 +7,13 @@ import (
 	_ "net/http/pprof"
 )
 
-
 // todo 零拷贝 copyBuffer , impl writeTo and ReadFrom
 func main() {
 	flag.Parse()
-	opts := broker.NewOption(broker.Leader, *common.Endpoint, *common.Dirname, []string{common.EtcdUrl})
-	broker.NewBroker(opts).Run()
+	broker.NewBroker(
+		broker.ServerType(broker.Leader),
+		broker.EndPoint(*common.Endpoint),
+		broker.Dirname(*common.Dirname),
+		broker.EtcdUrl([]string{common.EtcdUrl})).
+		Run()
 }

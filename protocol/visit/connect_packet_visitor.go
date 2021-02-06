@@ -11,18 +11,17 @@ import (
 	"time"
 )
 
-
 type ConnectPacketVisitor struct {
-	filterVisitor packet.Visitor
+	filteredVisitor packet.Visitor
 }
 
 func (v *ConnectPacketVisitor) Visit(fn packet.VisitorFunc) error {
-	return v.filterVisitor.Visit(fn)
+	return v.filteredVisitor.Visit(fn)
 }
 
 func NewConnectPacketVisitor(visitor packet.Visitor) *ConnectPacketVisitor {
 	return &ConnectPacketVisitor{
-		filterVisitor: packet.NewFilteredVisitor(visitor,
+		filteredVisitor: packet.NewFilteredVisitor(visitor,
 			protocolNameValidate,
 			protocolLevelValidate,
 			handleConnectFlag,
@@ -31,6 +30,27 @@ func NewConnectPacketVisitor(visitor packet.Visitor) *ConnectPacketVisitor {
 			handleWillTopic,
 			handleWillMessage,
 			handleUserNameAndPassword,
+		),
+	}
+}
+
+type ConnectFlagVisitor struct {
+	decoratedVisitor packet.Visitor
+}
+
+func (v *ConnectFlagVisitor) Visit(fn packet.VisitorFunc) error {
+	return v.decoratedVisitor.Visit(fn)
+}
+
+func newConnectFlagVisitor(visitor packet.Visitor) *ConnectFlagVisitor {
+	return &ConnectFlagVisitor{
+		decoratedVisitor: packet.NewDecoratedVisitor(visitor,
+			handleCleanSession,
+			handleWillFlag,
+			handleWillQos,
+			handleWillRetain,
+			handleUsernameFlag,
+			handlePasswordFlag,
 		),
 	}
 }
@@ -54,17 +74,12 @@ func protocolLevelValidate(controlPacket packet.ControlPacket) error {
 
 func handleConnectFlag(controlPacket packet.ControlPacket) error {
 	connectPacket := controlPacket.(*packet.ConnectPacket)
-	if !connectPacket.IsReserved() {
-		return fmt.Errorf("CONNECT控制报文的保留标志位必须为0")
-	}
-	// todo
-	//handler.handleCleanSession()
-	//handler.handleWillFlag()
-	//handler.handleWillQos()
-	//handler.handleWillRetain()
-	//handler.handleUserNameFlag()
-	//handler.handlePasswordFlag()
-	return nil
+	return newConnectFlagVisitor(&PacketVisitor{Packet: connectPacket}).Visit(func(controlPacket packet.ControlPacket) error {
+		if !connectPacket.IsReserved() {
+			return fmt.Errorf("CONNECT控制报文的保留标志位必须为0")
+		}
+		return nil
+	})
 }
 
 func handleKeepAlive(controlPacket packet.ControlPacket) error {
@@ -78,7 +93,6 @@ func clientIdentifierValidate(controlPacket packet.ControlPacket) error {
 	if !connectPayLoad.IsLegalClientId() {
 		return fmt.Errorf("客户端唯一标识错误")
 	}
-
 	if !connectPayLoad.IsAuthorizedClient() {
 		return fmt.Errorf("客户端未授权")
 	}
@@ -98,7 +112,7 @@ func handleWillMessage(controlPacket packet.ControlPacket) error {
 func handleUserNameAndPassword(controlPacket packet.ControlPacket) error {
 	var password string
 
-	etcdClient, _ := clientv3.New(clientv3.Config{
+	etcd, _ := clientv3.New(clientv3.Config{
 		Endpoints:   []string{common.EtcdUrl},
 		DialTimeout: 10 * time.Second,
 	})
@@ -107,7 +121,7 @@ func handleUserNameAndPassword(controlPacket packet.ControlPacket) error {
 	_, connectPayLoad := connectPacket.ProvisionConnectFlagsAndPayLoad()
 
 	getSecretFunc := func(username string) string {
-		getResp, _ := etcdClient.KV.Get(context.TODO(), username)
+		getResp, _ := etcd.KV.Get(context.TODO(), username)
 		password = string(getResp.Kvs[0].Value)
 		return password
 	}
@@ -115,5 +129,29 @@ func handleUserNameAndPassword(controlPacket packet.ControlPacket) error {
 	if !connectPayLoad.IsCorrectSecret(getSecretFunc) {
 		panic("客户端user和password错误")
 	}
+	return nil
+}
+
+func handleCleanSession(controlPacket packet.ControlPacket) error {
+	return nil
+}
+
+func handleWillFlag(controlPacket packet.ControlPacket) error {
+	return nil
+}
+
+func handleWillQos(controlPacket packet.ControlPacket) error {
+	return nil
+}
+
+func handleWillRetain(controlPacket packet.ControlPacket) error {
+	return nil
+}
+
+func handleUsernameFlag(controlPacket packet.ControlPacket) error {
+	return nil
+}
+
+func handlePasswordFlag(controlPacket packet.ControlPacket) error {
 	return nil
 }
