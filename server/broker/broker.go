@@ -86,6 +86,7 @@ type Broker struct {
 
 func NewBroker(options ...Option) IBroker {
 	broker := new(Broker)
+	broker.opt = new(option)
 	broker.brokerId = uuid.New().String()
 	for _, option := range options {
 		option(broker)
