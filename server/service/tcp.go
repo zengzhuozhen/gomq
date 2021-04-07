@@ -57,7 +57,7 @@ func (tcp *TCP) Start() {
 	}
 }
 
-func (tcp *TCP) startConnLoop() error {
+func (tcp *TCP) startConnLoop() {
 	log.Infof("开启监听连接循环")
 	for {
 		activeConn := tcp.ConsumerReceiver.Pool.ForeachActiveConn()
@@ -162,9 +162,11 @@ func (tcp *TCP) handleConnectProtocol(conn net.Conn) bool {
 		responseConnectAck(conn, protocol.ConnectAccess)
 		return nil
 	}); err != nil {
-		// todo 返回连接失败错误码
-		responseConnectAck(conn, 1)
-		return false
+		connectError, ok := err.(visit.ConnectError)
+		if ok { // 发送连接失败错误码
+			responseConnectAck(conn, byte(connectError.Code))
+			return false
+		}
 	}
 	return true
 }

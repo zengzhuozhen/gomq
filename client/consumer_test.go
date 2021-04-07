@@ -2,6 +2,7 @@ package client
 
 import (
 	"fmt"
+	"github.com/zengzhuozhen/gomq/protocol"
 	"testing"
 	"time"
 )
@@ -11,7 +12,7 @@ func TestConsumer_Subscribe_Topic_A(t *testing.T) {
 	opts := defaultOpts()
 	consumer := NewConsumer(opts)
 	topicList := []string{"A"}
-	retChan := consumer.Subscribe(topicList)
+	retChan := consumer.Subscribe(topicList,protocol.AtMostOnce)
 	for msg := range retChan {
 		fmt.Println(msg)
 	}
@@ -22,7 +23,7 @@ func TestConsumer_Subscribe_Topic_B(t *testing.T) {
 
 	consumer := NewConsumer(opts)
 	topicList := []string{"B"}
-	retChan := consumer.Subscribe(topicList)
+	retChan := consumer.Subscribe(topicList,protocol.AtMostOnce)
 	for msg := range retChan {
 		fmt.Println(msg)
 	}
@@ -33,7 +34,7 @@ func TestConsumer_Subscribe_Topic_C(t *testing.T) {
 
 	consumer := NewConsumer(opts)
 	topicList := []string{"C"}
-	retChan := consumer.Subscribe(topicList)
+	retChan := consumer.Subscribe(topicList,protocol.AtMostOnce)
 	for msg := range retChan {
 		fmt.Println(msg)
 	}
@@ -43,7 +44,7 @@ func TestConsumer_Subscribe_Topic_A_B_C(t *testing.T) {
 	opts := defaultOpts()
 	consumer := NewConsumer(opts)
 	topicList := []string{"A", "B", "C"}
-	retChan := consumer.Subscribe(topicList)
+	retChan := consumer.Subscribe(topicList,protocol.AtMostOnce)
 	for msg := range retChan {
 		fmt.Println(msg)
 	}
@@ -53,7 +54,7 @@ func TestConsumer_Subscribe_Then_Unsubscribe(t *testing.T) {
 	opts := defaultOpts()
 	consumer := NewConsumer(opts)
 	topicList := []string{"A"}
-	retChan := consumer.Subscribe(topicList)
+	retChan := consumer.Subscribe(topicList,protocol.AtMostOnce)
 	go func() {
 		for msg := range retChan {
 			fmt.Println(msg)
@@ -68,7 +69,7 @@ func TestConsumer_Subscribe_Then_Close(t *testing.T) {
 	opts := defaultOpts()
 	consumer := NewConsumer(opts)
 	topicList := []string{"A", "B", "C"}
-	retChan := consumer.Subscribe(topicList)
+	retChan := consumer.Subscribe(topicList,protocol.AtMostOnce)
 	go func() {
 		for msg := range retChan {
 			fmt.Println(msg)

@@ -16,24 +16,26 @@ type QoSForTopic map[string]byte
 
 type ConsumerReceiver struct {
 	ChanAssemble map[string][]common.MsgUnitChan
-	QoSGuarantee map[string]QoSForTopic
+	QoSGuarantee map[string]QoSForTopic // QOS要求
 	Pool         *Pool
 }
 
+// NewConsumerReceiver Provider a Receiver to solve A Consumer Request And Response Message
 func NewConsumerReceiver(chanAssemble map[string][]common.MsgUnitChan) *ConsumerReceiver {
 	return &ConsumerReceiver{
 		ChanAssemble: chanAssemble,
 		QoSGuarantee: make(map[string]QoSForTopic),
 		Pool: &Pool{
-			State:    new(sync.Map),
 			Position: make(map[string][]int64, 1024),
 			Topic:    make(map[string][]string, 1024),
 			IsOldOne: make(map[string]bool),
-			mu:       sync.Mutex{}},
-
+			State:    new(sync.Map),
+			mu:       new(sync.Mutex),
+		},
 	}
 }
 
+// HandleQuit solve a Consumer quit behaviour
 func (r *ConsumerReceiver) HandleQuit(connUid string) {
 	r.Pool.State.Store(connUid, false)
 	for _, v := range r.ChanAssemble[connUid] {
@@ -45,6 +47,7 @@ func (r *ConsumerReceiver) HandleQuit(connUid string) {
 	delete(r.ChanAssemble, connUid)
 }
 
+// ConsumeAndResponse receive a consume request and validate it ,then start a goroutine for each topic to build to send message channel
 func (r *ConsumerReceiver) ConsumeAndResponse(ctx context.Context, conn net.Conn, packet *protocolPacket.SubscribePacket) {
 	var TopicList []string
 	var QoSList []byte
@@ -91,20 +94,21 @@ func (r *ConsumerReceiver) ConsumeAndResponse(ctx context.Context, conn net.Conn
 
 }
 
+// listenMsgChan would listening the chan ,get the message,and then send to consumer
 func (r *ConsumerReceiver) listenMsgChan(ctx context.Context, topicIndex int, connUid string, conn net.Conn) {
 	for {
 		select {
 		case msg := <-r.ChanAssemble[connUid][topicIndex]:
 			// 防止多个管道同时竞争所有消息的问题,采用客户端连接池进行逻辑隔离解决
 			messagePacket := msg.Pack()
-			messagePacket = append(messagePacket,[]byte{'\n'}...)
-			fmt.Printf("准备推送消息:{Topic:'%s'} {Body:'%s'}", msg.Topic, msg.Data.Body)
-			if _, err := conn.Write(messagePacket); err != nil {
-				fmt.Println(err)
+			messagePacket = append(messagePacket, []byte{'\n'}...)
+			qosRequire := r.QoSGuarantee[connUid][msg.Topic]
+			if qosRequire <= msg.QoS { // 该消息QOS大于消费者要求的QOS，则可以发给这个消费者
+				fmt.Printf("准备推送消息:{Topic:'%s'} {Body:'%s'}", msg.Topic, msg.Data.Body)
+				if _, err := conn.Write(messagePacket); err != nil {
+					fmt.Println(err)
+				}
 			}
-			// todo choose send message	strategy by qos guarantee
-
-
 		case <-ctx.Done():
 			fmt.Printf("客户端{socket:'%s'}连接关闭，退出消费", connUid)
 			r.HandleQuit(connUid)
@@ -113,6 +117,7 @@ func (r *ConsumerReceiver) listenMsgChan(ctx context.Context, topicIndex int, co
 	}
 }
 
+// CloseConsumer would close all the channel within connUid ,and response a ack
 func (r *ConsumerReceiver) CloseConsumer(conn net.Conn, packet *protocolPacket.UnSubscribePacket) {
 	connUid := conn.RemoteAddr().String()
 	for packet.RemainingLength > 0 {
@@ -133,6 +138,7 @@ func (r *ConsumerReceiver) CloseConsumer(conn net.Conn, packet *protocolPacket.U
 	unSubAck.Write(conn)
 }
 
+// Pong is a response of ping
 func (r *ConsumerReceiver) Pong(conn net.Conn) {
 	_ = conn.SetDeadline(time.Now().Add(5 * time.Second))
 	pingRespPack := protocolPacket.NewPingRespPacket()
@@ -142,8 +148,8 @@ func (r *ConsumerReceiver) Pong(conn net.Conn) {
 	}
 }
 
+// Pool is a relation collection of any connective consumer,including consumer position ,subscribe topic,and so on...
 type Pool struct {
-	State *sync.Map
 	// position 和 topic 总是相对应的
 	// Position[ConnId]{Topic_A_position,Topic_B_position,Topic_C_position}
 	//							｜				｜				｜
@@ -151,7 +157,8 @@ type Pool struct {
 	Position map[string][]int64
 	Topic    map[string][]string
 	IsOldOne map[string]bool
-	mu       sync.Mutex
+	State    *sync.Map
+	mu       *sync.Mutex
 }
 
 func (p *Pool) ForeachActiveConn() []string {

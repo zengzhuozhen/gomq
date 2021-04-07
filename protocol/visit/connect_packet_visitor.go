@@ -4,12 +4,29 @@ import (
 	"context"
 	"fmt"
 	"github.com/zengzhuozhen/gomq/common"
+	"github.com/zengzhuozhen/gomq/protocol"
 	"github.com/zengzhuozhen/gomq/protocol/packet"
 	"github.com/zengzhuozhen/gomq/protocol/utils"
 	"go.etcd.io/etcd/clientv3"
 	"reflect"
 	"time"
 )
+
+type ConnectError struct {
+	Code    int32
+	Message string
+}
+
+func (e ConnectError) Error() string {
+	return fmt.Sprintf(e.Message)
+}
+
+func NewConnectError(code int32, message string) error {
+	return ConnectError{
+		Code:    code,
+		Message: message,
+	}
+}
 
 type ConnectPacketVisitor struct {
 	filteredVisitor packet.Visitor
@@ -58,7 +75,7 @@ func newConnectFlagVisitor(visitor packet.Visitor) *ConnectFlagVisitor {
 func protocolNameValidate(controlPacket packet.ControlPacket) error {
 	connectPacket := controlPacket.(*packet.ConnectPacket)
 	if reflect.DeepEqual(connectPacket.TypeAndReserved, utils.EncodeString("MQTT")) {
-		return fmt.Errorf("客户端使用的协议错误")
+		return NewConnectError(protocol.UnSupportProtocolType, "客户端使用的协议错误")
 	}
 	return nil
 }
@@ -66,8 +83,7 @@ func protocolNameValidate(controlPacket packet.ControlPacket) error {
 func protocolLevelValidate(controlPacket packet.ControlPacket) error {
 	connectPacket := controlPacket.(*packet.ConnectPacket)
 	if !connectPacket.IsSuitableProtocolLevel() {
-		return fmt.Errorf("不满足客户端要求的协议等级")
-		//todo 发送ack信息: responseConnectAck(conn, protocol.UnSupportProtocolVersion)
+		return NewConnectError(protocol.UnSupportProtocolVersion, "不满足客户端要求的协议等级")
 	}
 	return nil
 }
@@ -76,7 +92,7 @@ func handleConnectFlag(controlPacket packet.ControlPacket) error {
 	connectPacket := controlPacket.(*packet.ConnectPacket)
 	return newConnectFlagVisitor(&PacketVisitor{Packet: connectPacket}).Visit(func(controlPacket packet.ControlPacket) error {
 		if !connectPacket.IsReserved() {
-			return fmt.Errorf("CONNECT控制报文的保留标志位必须为0")
+			return NewConnectError(protocol.UnAvailableService,"CONNECT控制报文的保留标志位必须为0")
 		}
 		return nil
 	})
@@ -91,10 +107,10 @@ func clientIdentifierValidate(controlPacket packet.ControlPacket) error {
 	connectPacket := controlPacket.(*packet.ConnectPacket)
 	_, connectPayLoad := connectPacket.ProvisionConnectFlagsAndPayLoad()
 	if !connectPayLoad.IsLegalClientId() {
-		return fmt.Errorf("客户端唯一标识错误")
+		return NewConnectError(protocol.UnSupportClientIdentity, "客户端唯一标识错误")
 	}
 	if !connectPayLoad.IsAuthorizedClient() {
-		return fmt.Errorf("客户端未授权")
+		return NewConnectError(protocol.UnAuthorization, "客户端未授权")
 	}
 	return nil
 }
@@ -127,7 +143,7 @@ func handleUserNameAndPassword(controlPacket packet.ControlPacket) error {
 	}
 
 	if !connectPayLoad.IsCorrectSecret(getSecretFunc) {
-		panic("客户端user和password错误")
+		return NewConnectError(protocol.UserAndPassError, "客户端账号密码错误")
 	}
 	return nil
 }

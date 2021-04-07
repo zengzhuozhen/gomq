@@ -11,8 +11,6 @@ import (
 	"time"
 )
 
-
-
 type Consumer struct {
 	client     *client
 	ctx        context.Context
@@ -30,10 +28,10 @@ func NewConsumer(opts *Option) *Consumer {
 	return &Consumer{client: client, ctx: ctx, cancelFunc: cancel}
 }
 
-func (c *Consumer) Subscribe(topic []string) <-chan *common.MessageUnit {
+func (c *Consumer) Subscribe(topic []string, QOSRequire int) <-chan *common.MessageUnit {
 	c.topic = topic
 	// 连接服务端
-	subscribePacket := protocolPacket.NewSubscribePacket(0, topic, 0)
+	subscribePacket := protocolPacket.NewSubscribePacket(c.client.getAvailableIdentity(), topic, byte(QOSRequire))
 	err := subscribePacket.Write(c.client.conn)
 	if err != nil {
 		log.Errorf("客户端订阅主题失败:发送subscribe")
@@ -80,6 +78,7 @@ func (c *Consumer) readPacket(msgUnitChan chan<- *common.MessageUnit) {
 			} else {
 				log.Infof("收到服务端确认订阅消息")
 			}
+			c.client.IdentityPool[int(packet.(*protocolPacket.SubAckPacket).PacketIdentifier)] = false
 		case byte(protocol.UNSUBACK):
 			packet = &protocolPacket.UnSubAckPacket{}
 			err := packet.Read(c.client.conn, fh)
@@ -88,6 +87,7 @@ func (c *Consumer) readPacket(msgUnitChan chan<- *common.MessageUnit) {
 			} else {
 				log.Infof("收到服务端确认取消订阅")
 			}
+			c.client.IdentityPool[int(packet.(*protocolPacket.UnSubAckPacket).PacketIdentifier)] = false
 		case byte(protocol.PINGRESP):
 			log.Infof("收到服务端心跳回应")
 		default:

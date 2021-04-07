@@ -7,7 +7,6 @@ import (
 	_ "net/http/pprof"
 )
 
-// todo 零拷贝 copyBuffer , impl writeTo and ReadFrom
 func main() {
 	flag.Parse()
 	broker.NewBroker(
