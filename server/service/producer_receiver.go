@@ -50,7 +50,6 @@ func (p *ProducerReceiver) toQueue(publishPacket *protocolPacket.PublishPacket) 
 	if publishPacket.Retain() {
 		p.RetainQueue.Push(messageUnit)
 	}
-	log.Debugf("记录入队数据", message.MsgKey)
 }
 
 func (p *ProducerReceiver) responsePubAck(conn net.Conn, identify uint16) {

@@ -1,5 +1,3 @@
-# normal-flow
-
 FROM golang:1.15-alpine as builder
 
 WORKDIR /usr/local/go/src/gomq
@@ -18,13 +16,3 @@ COPY --from=builder /usr/local/go/src/gomq/gomq     /usr/local/bin
 COPY --from=builder /usr/local/go/src/gomq/gomqctl  /usr/local/bin
 
 CMD gomq
-
-
-# quick-flow
-
-#FROM alpine as runner
-#
-#COPY  ./gomq     /usr/local/bin
-#COPY  ./gomqctl  /usr/local/bin
-#
-#CMD gomq

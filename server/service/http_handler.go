@@ -3,11 +3,12 @@ package service
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/google/uuid"
 	"github.com/zengzhuozhen/gomq/cmd/do"
 	"github.com/zengzhuozhen/gomq/common"
 	"github.com/zengzhuozhen/gomq/protocol/packet"
+	"io/ioutil"
 	"net/http"
-	"strconv"
 )
 
 type Handler struct {
@@ -41,19 +42,27 @@ func (h *Handler) Messages(writer http.ResponseWriter, request *http.Request) {
 }
 
 func (h *Handler) Publish(writer http.ResponseWriter, request *http.Request) {
-	vars := request.URL.Query()
-	topicName := vars.Get("topic")
-	body := vars.Get("body")
-	qos, _ := strconv.Atoi(vars.Get("qos"))
-	retain, _ := strconv.Atoi(vars.Get("retain"))
-
-	message := common.Message{
-		MsgKey: "",
-		Body:   body,
+	var data []byte
+	data, err := ioutil.ReadAll(request.Body)
+	if err != nil {
+		writer.Write([]byte("err"))
+		return
 	}
-	publishPacket := packet.NewPublishPacket(topicName, message, true, qos, retain, 0)
+	type ReqMessage struct {
+		Topic  string `json:"topic"`
+		Body   string `json:"body"`
+		QoS    int32  `json:"qos"`
+		Retain int32  `json:"retain"`
+	}
+	reqMessage := new(ReqMessage)
+	_ = json.Unmarshal(data, reqMessage)
+	fmt.Println(string(data))
+	message := common.Message{
+		MsgKey: uuid.New().String(),
+		Body:   reqMessage.Body,
+	}
+	publishPacket := packet.NewPublishPacket(reqMessage.Topic, message, true, int(reqMessage.QoS), int(reqMessage.Retain), 0)
 	h.ProducerReceiver.toQueue(&publishPacket)
-	fmt.Println(topicName, body)
 
 	writer.Write([]byte("ok"))
 }
