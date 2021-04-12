@@ -1,0 +1,1 @@
+{"topic":"A","body":"helloWorld","qos":1,"retain":1}
