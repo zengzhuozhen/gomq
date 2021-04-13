@@ -61,13 +61,14 @@ GLOBAL OPTIONS:
     略
 ## 设计
 ### 关键概念
-   术语|说明
-   QoS（服务质量等级）| 分为最多一次，最少一次，精确一次
-   retain（保留消息）| 决定消息是否持久化
-   consumer| 消息的消费者，可以订阅多个主题
-   producer｜ 消息的生产者，可以发布消息到指定主题
-   leader | 服务集群的leader,负责MQ主要功能，并同步数据给member
-   member | 服务集群的member,只负责拷贝leader的数据
+   |术语|说明|
+   |---|---|
+   |QoS（服务质量等级）| 分为最多一次，最少一次，精确一次|
+   |retain（保留消息）| 决定消息是否持久化|
+   |consumer| 消息的消费者，可以订阅多个主题|
+   |producer|消息的生产者，可以发布消息到指定主题|
+   |leader | 服务集群的leader,负责MQ主要功能，并同步数据给member|
+   |member | 服务集群的member,只负责拷贝leader的数据|
     
 ### 整体架构
     略
