@@ -31,11 +31,16 @@ Golang实现的消息队列
 |4001|ETCD默认占用端口|
 |7001|ETCD默认占用端口|
 ### Docker
+
    推荐使用Docker运行
+   
    构建容器：make dockerPrepare
+   
    运行容器：docker-compose up -d 
+   
 ### 命令行工具
    可以用命令行工具进行操作
+   
 USAGE:
    gomqctl [global options] command [command options] [arguments...]
 
@@ -55,7 +60,9 @@ GLOBAL OPTIONS:
 
    发布消息：
    docker exec -it gomq gomqctl --topic A --connect 127.0.0.1:9000 pub hello wrold everyone
+   
    订阅消息：
+   
    docker exec -it gomq gomqctl --topic A --connect 127.0.0.1:9000 sub 
 ### HTTP
     略
