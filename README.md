@@ -62,7 +62,6 @@ GLOBAL OPTIONS:
    docker exec -it gomq gomqctl --topic A --connect 127.0.0.1:9000 pub hello wrold everyone
    
    订阅消息：
-   
    docker exec -it gomq gomqctl --topic A --connect 127.0.0.1:9000 sub 
 ### HTTP
     略
