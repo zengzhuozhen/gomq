@@ -149,6 +149,7 @@ func (r *ConsumerReceiver) Pong(conn net.Conn) {
 }
 
 // Pool is a relation collection of any connective consumer,including consumer position ,subscribe topic,and so on...
+// todo refactor:Pool改为客户端连接抽象的集合，将position,topic message 等存在客户端连接抽象struct里面, state 和 mu 还是存在pool里面
 type Pool struct {
 	// position 和 topic 总是相对应的
 	// Position[ConnId]{Topic_A_position,Topic_B_position,Topic_C_position}
@@ -156,9 +157,16 @@ type Pool struct {
 	// Topic[ConnId]   {	Topic_A,		Topic_B,		Topic_C		}
 	Position map[string][]int64
 	Topic    map[string][]string
-	IsOldOne map[string]bool
-	State    *sync.Map
-	mu       *sync.Mutex
+	// IsOldOne 判断是否为重启的旧客户端
+	IsOldOne    map[string]bool
+	WillFlag    map[string]bool
+	WillQos     map[string]int32
+	WillRetain  map[string]bool
+	WillTopic   map[string]string
+	WillMessage map[string]protocolPacket.PublishPacket
+	// State 存储客户端活跃状态
+	State *sync.Map
+	mu    *sync.Mutex
 }
 
 func (p *Pool) ForeachActiveConn() []string {

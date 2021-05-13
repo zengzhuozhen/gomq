@@ -98,8 +98,10 @@ func handleConnectFlag(controlPacket packet.ControlPacket) error {
 	})
 }
 
+// handleKeepAlive 如果保持连接的值非零，并且服务端在一点五倍的保持连接时间内没有收到客户端的控制报文，它必须断开客户端的网络连接，认为网络连接已断开
 func handleKeepAlive(controlPacket packet.ControlPacket) error {
-	// todo
+	connectPacket := controlPacket.(*packet.ConnectPacket)
+	common.KeepAlice =  connectPacket.KeepAlive
 	return nil
 }
 
@@ -153,6 +155,11 @@ func handleCleanSession(controlPacket packet.ControlPacket) error {
 }
 
 func handleWillFlag(controlPacket packet.ControlPacket) error {
+	connectPacket := controlPacket.(*packet.ConnectPacket)
+	connectFlags, _ := connectPacket.ProvisionConnectFlagsAndPayLoad()
+	if connectFlags.WillFlag {
+		// todo 设置遗嘱消息，服务端与客户端断开连接时发送该消息
+	}
 	return nil
 }
 

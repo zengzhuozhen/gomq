@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"github.com/zengzhuozhen/gomq/common"
 	"github.com/zengzhuozhen/gomq/log"
 	"github.com/zengzhuozhen/gomq/protocol"
 	protocolPacket "github.com/zengzhuozhen/gomq/protocol/packet"
@@ -108,7 +109,7 @@ func (tcp *TCP) popQueue(uid, topic string, topicIndex int) {
 func (tcp *TCP) holdConn(conn net.Conn) {
 	// 如果没有可读数据，也就是读 buffer 为空，则阻塞
 	ctx, cancel := context.WithCancel(context.Background())
-	_ = conn.SetDeadline(time.Now().Add(10 * time.Second))
+	_ = conn.SetDeadline(time.Now().Add(time.Duration(common.KeepAlice) * time.Second))
 	for {
 		packet, err := ReadPacket(conn)
 		if err != nil {

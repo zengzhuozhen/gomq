@@ -132,7 +132,7 @@ func (c *ConnectPacketPayLoad) IsCorrectSecret(getSecretFunc func(string) string
 	return  getSecretFunc(c.userName) == c.password
 }
 
-// 根据 connectPacket包提取 connectFlags 和 payLoad 结构
+// ProvisionConnectFlagsAndPayLoad 根据 connectPacket包提取 connectFlags 和 payLoad 结构
 func (c *ConnectPacket) ProvisionConnectFlagsAndPayLoad() (*ConnectFlags, *ConnectPacketPayLoad) {
 	connectFlags := new(ConnectFlags)
 	connectFlags.decode(c.ConnectFlags)

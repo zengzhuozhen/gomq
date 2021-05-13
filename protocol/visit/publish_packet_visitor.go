@@ -31,7 +31,7 @@ func NewPublishPacketVisitor(visitor packet.Visitor,queue *common.RetainQueue) *
 
 func qosValidate(controlPacket packet.ControlPacket) error {
 	publishPacket := controlPacket.(*packet.PublishPacket)
-	if publishPacket.QoS() >= 3 {
+	if publishPacket.QoS() < 0 || publishPacket.QoS() > 2 {
 		return fmt.Errorf("非法的Qos")
 	}
 	return nil
@@ -40,18 +40,18 @@ func qosValidate(controlPacket packet.ControlPacket) error {
 func handleDup(controlPacket packet.ControlPacket) error {
 	publishPacket := controlPacket.(*packet.PublishPacket)
 	if publishPacket.Dup() {
-		// todo
-
+		// 重发报文，暂时没有处理
 	}
 	return nil
 }
 
 func (rqc container) handleRetain(controlPacket packet.ControlPacket) error {
 	publishPacket := controlPacket.(*packet.PublishPacket)
-	if publishPacket.Retain() == true && publishPacket.QoS() == 0 {
-		// 丢弃之前保留的主题信息
-		rqc.retainQueue.Reset(publishPacket.TopicName)
-		// 将该消息作为最新的保留消息
+	if publishPacket.Retain() == true  {
+		if publishPacket.QoS() == 0{
+			// 丢弃之前保留的主题信息,将该消息作为最新的保留消息
+			rqc.retainQueue.Reset(publishPacket.TopicName)
+		}
 		message := new(common.Message)
 		message = message.UnPack(publishPacket.Payload)
 		messageUnit := common.NewMessageUnit(publishPacket.TopicName, publishPacket.QoS(), *message)
