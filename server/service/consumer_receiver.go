@@ -26,11 +26,9 @@ func NewConsumerReceiver(chanAssemble map[string][]common.MsgUnitChan) *Consumer
 		ChanAssemble: chanAssemble,
 		QoSGuarantee: make(map[string]QoSForTopic),
 		Pool: &Pool{
-			Position: make(map[string][]int64, 1024),
-			Topic:    make(map[string][]string, 1024),
-			IsOldOne: make(map[string]bool),
-			State:    new(sync.Map),
-			mu:       new(sync.Mutex),
+			Connections: make(map[string]*ConnectionAbstract, 1024),
+			State:       new(sync.Map),
+			mu:          new(sync.Mutex),
 		},
 	}
 }
@@ -124,7 +122,7 @@ func (r *ConsumerReceiver) CloseConsumer(conn net.Conn, packet *protocolPacket.U
 		topic, _ := utils.DecodeString(conn)
 		// 这里根据consume 连接到server是提供的 topic 列表在pool中顺序排列的特点
 		// 找出此次需要关闭的 topic 通道对应的 key ，需严格保证 Pool 中所有数组顺序排列
-		for topicIndex, top := range r.Pool.Topic[connUid] {
+		for topicIndex, top := range r.Pool.Connections[connUid].Topic {
 			if top == topic {
 				fmt.Println("关闭", connUid, "的主题", topic)
 				close(r.ChanAssemble[connUid][topicIndex])
@@ -149,21 +147,8 @@ func (r *ConsumerReceiver) Pong(conn net.Conn) {
 }
 
 // Pool is a relation collection of any connective consumer,including consumer position ,subscribe topic,and so on...
-// todo refactor:Pool改为客户端连接抽象的集合，将position,topic message 等存在客户端连接抽象struct里面, state 和 mu 还是存在pool里面
 type Pool struct {
-	// position 和 topic 总是相对应的
-	// Position[ConnId]{Topic_A_position,Topic_B_position,Topic_C_position}
-	//							｜				｜				｜
-	// Topic[ConnId]   {	Topic_A,		Topic_B,		Topic_C		}
-	Position map[string][]int64
-	Topic    map[string][]string
-	// IsOldOne 判断是否为重启的旧客户端
-	IsOldOne    map[string]bool
-	WillFlag    map[string]bool
-	WillQos     map[string]int32
-	WillRetain  map[string]bool
-	WillTopic   map[string]string
-	WillMessage map[string]protocolPacket.PublishPacket
+	Connections map[string]*ConnectionAbstract
 	// State 存储客户端活跃状态
 	State *sync.Map
 	mu    *sync.Mutex
@@ -172,7 +157,7 @@ type Pool struct {
 func (p *Pool) ForeachActiveConn() []string {
 	connUids := make([]string, 0)
 	p.State.Range(func(connUid, isActive interface{}) bool {
-		if isActive.(bool) == true && len(p.Topic[connUid.(string)]) != 0 {
+		if isActive.(bool) == true && p.Connections[connUid.(string)].IsEmptyTopic() {
 			connUids = append(connUids, connUid.(string))
 		}
 		return true
@@ -182,28 +167,18 @@ func (p *Pool) ForeachActiveConn() []string {
 
 func (p *Pool) Add(connUid string, topics []string) {
 	p.State.Store(connUid, true)
-	p.Position[connUid] = make([]int64, len(topics))
-	p.Topic[connUid] = topics
+	p.Connections[connUid].Position = make([]int64, len(topics))
+	p.Connections[connUid].Topic = topics
 }
 
 func (p *Pool) UpdatePosition(uid, topic string) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	for k, v := range p.Topic[uid] {
-		if topic == v {
-			p.Position[uid][k]++
-			break
-		}
-	}
+	p.Connections[uid].UpdatePosition(topic, -1)
 }
 
 func (p *Pool) UpdatePositionTo(uid, topic string, to int) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	for k, v := range p.Topic[uid] {
-		if topic == v {
-			p.Position[uid][k] = int64(to)
-			break
-		}
-	}
+	p.Connections[uid].UpdatePosition(topic, int64(to))
 }

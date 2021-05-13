@@ -64,7 +64,7 @@ func (tcp *TCP) startConnLoop() {
 			continue
 		}
 		for _, uid := range activeConn {
-			topicList := tcp.ConsumerReceiver.Pool.Topic[uid]
+			topicList := tcp.ConsumerReceiver.Pool.Connections[uid].Topic
 			var wg sync.WaitGroup
 			for topicIndex, topic := range topicList {
 				wg.Add(1)
@@ -81,7 +81,7 @@ func (tcp *TCP) startConnLoop() {
 
 func (tcp *TCP) popRetainQueue(uid, topic string, topicIndex int) {
 	// todo 优化，每次都要去查一遍保留队列是否为空，并且是IO操作
-	if !tcp.ConsumerReceiver.Pool.IsOldOne[uid] {
+	if !tcp.ConsumerReceiver.Pool.Connections[uid].IsOldOne {
 		if tcp.ProducerReceiver.RetainQueue.Cap(topic) > 0 { // 读一下retainQueue的保留内容
 			msgList := tcp.ProducerReceiver.RetainQueue.ReadAll(topic)
 			for _, msg := range msgList {
@@ -91,12 +91,12 @@ func (tcp *TCP) popRetainQueue(uid, topic string, topicIndex int) {
 		maxPosition := len(tcp.ProducerReceiver.Queue.Local[topic])
 		// 更新到最新的偏移
 		tcp.ConsumerReceiver.Pool.UpdatePositionTo(uid, topic, maxPosition)
-		tcp.ConsumerReceiver.Pool.IsOldOne[uid] = true
+		tcp.ConsumerReceiver.Pool.Connections[uid].IsOldOne = true
 	}
 }
 
 func (tcp *TCP) popQueue(uid, topic string, topicIndex int) {
-	position := tcp.ConsumerReceiver.Pool.Position[uid][topicIndex]
+	position := tcp.ConsumerReceiver.Pool.Connections[uid].Position[topicIndex]
 	// 正常处理
 	if msg, err := tcp.ProducerReceiver.Queue.Pop(topic, position); err == nil {
 		tcp.ConsumerReceiver.Pool.UpdatePosition(uid, topic)
@@ -155,8 +155,8 @@ func (tcp *TCP) handleConnectProtocol(conn net.Conn) bool {
 		conn.Close()
 		return false
 	}
-	if err = visit.NewConnectPacketVisitor(&visit.PacketVisitor{Packet: &connPacket}).Visit(func(packet protocolPacket.ControlPacket) error {
-		// 正常连接，返回连接成功ack
+	if err = visit.NewConnectPacketVisitor(&visit.PacketVisitor{Packet: &connPacket},tcp.ConsumerReceiver.Pool.Connections).
+		Visit(func(packet protocolPacket.ControlPacket) error { // 正常连接，返回连接成功ack
 		responseConnectAck(conn, protocol.ConnectAccess)
 		return nil
 	}); err != nil {

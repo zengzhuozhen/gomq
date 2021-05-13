@@ -7,6 +7,7 @@ import (
 	"github.com/zengzhuozhen/gomq/protocol"
 	"github.com/zengzhuozhen/gomq/protocol/packet"
 	"github.com/zengzhuozhen/gomq/protocol/utils"
+	"github.com/zengzhuozhen/gomq/server/service"
 	"go.etcd.io/etcd/clientv3"
 	"reflect"
 	"time"
@@ -36,12 +37,13 @@ func (v *ConnectPacketVisitor) Visit(fn packet.VisitorFunc) error {
 	return v.filteredVisitor.Visit(fn)
 }
 
-func NewConnectPacketVisitor(visitor packet.Visitor) *ConnectPacketVisitor {
+func NewConnectPacketVisitor(visitor packet.Visitor, connections map[string]*service.ConnectionAbstract) *ConnectPacketVisitor {
+	container := container{connections: connections}
 	return &ConnectPacketVisitor{
 		filteredVisitor: packet.NewFilteredVisitor(visitor,
 			protocolNameValidate,
 			protocolLevelValidate,
-			handleConnectFlag,
+			container.handleConnectFlag,
 			handleKeepAlive,
 			clientIdentifierValidate,
 			handleWillTopic,
@@ -59,15 +61,16 @@ func (v *ConnectFlagVisitor) Visit(fn packet.VisitorFunc) error {
 	return v.decoratedVisitor.Visit(fn)
 }
 
-func newConnectFlagVisitor(visitor packet.Visitor) *ConnectFlagVisitor {
+func newConnectFlagVisitor(visitor packet.Visitor, connections map[string]*service.ConnectionAbstract) *ConnectFlagVisitor {
+	container := container{connections: connections}
 	return &ConnectFlagVisitor{
 		decoratedVisitor: packet.NewDecoratedVisitor(visitor,
-			handleCleanSession,
-			handleWillFlag,
-			handleWillQos,
-			handleWillRetain,
-			handleUsernameFlag,
-			handlePasswordFlag,
+			container.handleCleanSession,
+			container.handleWillFlag,
+			container.handleWillQos,
+			container.handleWillRetain,
+			container.handleUsernameFlag,
+			container.handlePasswordFlag,
 		),
 	}
 }
@@ -88,11 +91,11 @@ func protocolLevelValidate(controlPacket packet.ControlPacket) error {
 	return nil
 }
 
-func handleConnectFlag(controlPacket packet.ControlPacket) error {
+func (c container) handleConnectFlag(controlPacket packet.ControlPacket) error {
 	connectPacket := controlPacket.(*packet.ConnectPacket)
-	return newConnectFlagVisitor(&PacketVisitor{Packet: connectPacket}).Visit(func(controlPacket packet.ControlPacket) error {
+	return newConnectFlagVisitor(&PacketVisitor{Packet: connectPacket}, c.connections).Visit(func(controlPacket packet.ControlPacket) error {
 		if !connectPacket.IsReserved() {
-			return NewConnectError(protocol.UnAvailableService,"CONNECT控制报文的保留标志位必须为0")
+			return NewConnectError(protocol.UnAvailableService, "CONNECT控制报文的保留标志位必须为0")
 		}
 		return nil
 	})
@@ -101,7 +104,7 @@ func handleConnectFlag(controlPacket packet.ControlPacket) error {
 // handleKeepAlive 如果保持连接的值非零，并且服务端在一点五倍的保持连接时间内没有收到客户端的控制报文，它必须断开客户端的网络连接，认为网络连接已断开
 func handleKeepAlive(controlPacket packet.ControlPacket) error {
 	connectPacket := controlPacket.(*packet.ConnectPacket)
-	common.KeepAlice =  connectPacket.KeepAlive
+	common.KeepAlice = connectPacket.KeepAlive
 	return nil
 }
 
@@ -150,31 +153,32 @@ func handleUserNameAndPassword(controlPacket packet.ControlPacket) error {
 	return nil
 }
 
-func handleCleanSession(controlPacket packet.ControlPacket) error {
+func (container) handleCleanSession(controlPacket packet.ControlPacket) error {
 	return nil
 }
 
-func handleWillFlag(controlPacket packet.ControlPacket) error {
+func (container) handleWillFlag(controlPacket packet.ControlPacket) error {
 	connectPacket := controlPacket.(*packet.ConnectPacket)
 	connectFlags, _ := connectPacket.ProvisionConnectFlagsAndPayLoad()
 	if connectFlags.WillFlag {
 		// todo 设置遗嘱消息，服务端与客户端断开连接时发送该消息
+
 	}
 	return nil
 }
 
-func handleWillQos(controlPacket packet.ControlPacket) error {
+func (container) handleWillQos(controlPacket packet.ControlPacket) error {
 	return nil
 }
 
-func handleWillRetain(controlPacket packet.ControlPacket) error {
+func (container) handleWillRetain(controlPacket packet.ControlPacket) error {
 	return nil
 }
 
-func handleUsernameFlag(controlPacket packet.ControlPacket) error {
+func (container) handleUsernameFlag(controlPacket packet.ControlPacket) error {
 	return nil
 }
 
-func handlePasswordFlag(controlPacket packet.ControlPacket) error {
+func (container) handlePasswordFlag(controlPacket packet.ControlPacket) error {
 	return nil
 }

@@ -14,9 +14,7 @@ func (v *PublishPacketVisitor) Visit(fn packet.VisitorFunc) error {
 	return v.filterVisitor.Visit(fn)
 }
 
-type container struct {
-	retainQueue *common.RetainQueue
-}
+
 
 func NewPublishPacketVisitor(visitor packet.Visitor,queue *common.RetainQueue) *PublishPacketVisitor {
 	container := container{retainQueue: queue}
