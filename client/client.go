@@ -2,7 +2,6 @@ package client
 
 import (
 	"github.com/google/uuid"
-	"github.com/zengzhuozhen/gomq/common"
 	"github.com/zengzhuozhen/gomq/log"
 	"github.com/zengzhuozhen/gomq/protocol"
 	protocolPacket "github.com/zengzhuozhen/gomq/protocol/packet"
@@ -25,7 +24,7 @@ type client struct {
 	optionsMu    sync.Mutex
 	conn         net.Conn
 	IdentityPool map[int]bool
-	session      *common.ClientState
+	statusCache  *PacketStateCache
 }
 
 func newClient(opt *Option) *client {
@@ -37,7 +36,7 @@ func newClient(opt *Option) *client {
 		options:      opt,
 		optionsMu:    sync.Mutex{},
 		IdentityPool: identityPool,
-		session: &common.ClientState{
+		statusCache: &PacketStateCache{
 			Pub: make(map[uint16]interface{}),
 			Rel: make(map[uint16]interface{}),
 			Rec: make(map[uint16]interface{}),
@@ -93,36 +92,51 @@ func (c *client) getAvailableIdentity() uint16 {
 	return 0
 }
 
-func (c *client) cleanSession() {
-	c.session = &common.ClientState{
-		Pub: make(map[uint16]interface{}),
-		Rel: make(map[uint16]interface{}),
-		Rec: make(map[uint16]interface{}),
-	}
-}
-
-func (c *client) saveToSession(packet protocolPacket.ControlPacket) {
+// save
+// 保存已发送的publish,已收到的pubRec，已发送的pubRel
+func (c *PacketStateCache) save(packet protocolPacket.ControlPacket) {
 	switch packet.(type) {
 	case *protocolPacket.PublishPacket:
 		pubPacket := packet.(*protocolPacket.PublishPacket)
-		c.session.Pub[pubPacket.PacketIdentifier] = *pubPacket
-	case *protocolPacket.PubRelPacket:
-		relPacket := packet.(*protocolPacket.PubRelPacket)
-		c.session.Rel[relPacket.PacketIdentifier] = *relPacket
+		c.Pub[pubPacket.PacketIdentifier] = *pubPacket
 	case *protocolPacket.PubRecPacket:
 		recPacket := packet.(*protocolPacket.PubRecPacket)
-		c.session.Rec[recPacket.PacketIdentifier] = *recPacket
+		c.Rec[recPacket.PacketIdentifier] = *recPacket
+	case *protocolPacket.PubRelPacket:
+		relPacket := packet.(*protocolPacket.PubRelPacket)
+		c.Rel[relPacket.PacketIdentifier] = *relPacket
 	}
 }
 
-func (c *client) deleteFromSession(packet protocolPacket.ControlPacket) {
+// remove
+// 收到Ack，删除Pub
+// 收到Rec，删除Pub
+// 收到Rel，删除Rec
+// 收到Comp，删除Rel
+func (c *PacketStateCache) remove(packet protocolPacket.ControlPacket) {
 	switch packet.(type) {
 	case *protocolPacket.PubAckPacket:
 		ackPacket := packet.(*protocolPacket.PubAckPacket)
-		delete(c.session.Pub, ackPacket.PacketIdentifier)
+		delete(c.Pub, ackPacket.PacketIdentifier)
+	case *protocolPacket.PubRecPacket:
+		recPacket := packet.(*protocolPacket.PubRecPacket)
+		delete(c.Pub, recPacket.PacketIdentifier)
+	case *protocolPacket.PubRelPacket:
+		relPacket := packet.(*protocolPacket.PubRelPacket)
+		delete(c.Rec, relPacket.PacketIdentifier)
 	case *protocolPacket.PubCompPacket:
 		compPacket := packet.(*protocolPacket.PubCompPacket)
-		delete(c.session.Rec, compPacket.PacketIdentifier)
-		delete(c.session.Rel, compPacket.PacketIdentifier)
+		delete(c.Rel, compPacket.PacketIdentifier)
 	}
+}
+
+// PacketStateCache 保存通讯过程中包的中间状态，以便崩溃重启后重发消息，保证消息不丢失
+// 只在客户端实现，通过客户端驱动服务端进行重发，服务端无状态
+type PacketStateCache struct {
+	// 已经发送给服务端，但是还没有完成确认的QoS 1和QoS 2级别的消息
+	Pub map[uint16]interface{}
+	// 已从服务端接收，但是还没有发送Rel的QoS 2级别信息
+	Rec map[uint16]interface{}
+	// 已经发送给服务端，但是还没有完成确认的QoS 2级别的消息
+	Rel map[uint16]interface{}
 }

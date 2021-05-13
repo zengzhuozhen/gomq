@@ -67,9 +67,11 @@ func (p *ProducerReceiver) responsePubRec(conn net.Conn, packet *protocolPacket.
 }
 
 func (p *ProducerReceiver) AcceptRelAndRespComp(conn net.Conn, packet *protocolPacket.PubRelPacket) {
-	publishPacket := p.tempPublishPool[int(packet.PacketIdentifier)]
-	p.toQueue(&publishPacket)
-	delete(p.tempPublishPool, int(packet.PacketIdentifier)) // 删除临时保存的publish包，防止重发
+	publishPacket,ok := p.tempPublishPool[int(packet.PacketIdentifier)]
+	if ok { // Qos2到了第三阶段才真正的写到Server,因此rel可以多次发送,存在重发的情况，这里去重
+		p.toQueue(&publishPacket)
+		delete(p.tempPublishPool, int(packet.PacketIdentifier)) // 删除临时保存的publish包，防止重发
+	}
 	// PUBCOMP – 发布完成（QoS 2，第三步)
 	log.Debugf("准备返回pubComp")
 	pubCompPacket := protocolPacket.NewPubCompPacket(packet.PacketIdentifier)

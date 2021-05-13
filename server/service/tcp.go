@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"github.com/zengzhuozhen/gomq/common"
 	"github.com/zengzhuozhen/gomq/log"
 	"github.com/zengzhuozhen/gomq/protocol"
 	protocolPacket "github.com/zengzhuozhen/gomq/protocol/packet"
@@ -22,10 +21,9 @@ type TCP struct {
 	*ConsumerReceiver
 	*MemberReceiver
 	etcdClient *clientv3.Client
-	session    map[string]*common.ServerState
 }
 
-func NewTCP(address string, PR *ProducerReceiver, CR *ConsumerReceiver, MR *MemberReceiver, client *clientv3.Client, session map[string]*common.ServerState) *TCP {
+func NewTCP(address string, PR *ProducerReceiver, CR *ConsumerReceiver, MR *MemberReceiver, client *clientv3.Client) *TCP {
 	return &TCP{
 		protocol:         "tcp",
 		address:          address,
@@ -33,7 +31,6 @@ func NewTCP(address string, PR *ProducerReceiver, CR *ConsumerReceiver, MR *Memb
 		ConsumerReceiver: CR,
 		MemberReceiver:   MR,
 		etcdClient:       client,
-		session:          session,
 	}
 }
 

@@ -79,8 +79,6 @@ type Broker struct {
 	LeaderAddress    string
 	FollowersRemote  map[string]string // clientId : ipAddress
 	RegisterCenter   *clientv3.Client
-	session          map[string]*common.ServerState
-
 	memberClient *client.Member // 作为Member启动时持有的客户端
 }
 
@@ -97,8 +95,6 @@ func NewBroker(options ...Option) IBroker {
 	broker.ConsumerReceiver = service.NewConsumerReceiver(make(map[string][]common.MsgUnitChan))
 	broker.MemberReceiver = service.NewMemberReceiver(queue)
 	broker.FollowersRemote = make(map[string]string)
-	broker.session = make(map[string]*common.ServerState)
-
 	broker.register()
 	log.Debugf("初始化broker成功，ID:" + broker.brokerId)
 
