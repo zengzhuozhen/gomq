@@ -12,11 +12,16 @@ import (
 )
 
 type Option struct {
-	Protocol string
-	Address  string
-	Timeout  int // timeout sec
-	Username string
-	Password string
+	Protocol     string
+	Address      string
+	Timeout      int // timeout sec
+	Username     string
+	Password     string
+	WillTopic    string
+	WillMessage  string
+	WillQoS      uint8
+	CleanSession bool
+	KeepAlive    bool
 }
 
 type client struct {
@@ -52,7 +57,7 @@ func (c *client) connect() error {
 	}
 	c.conn = conn
 	payLoad := protocolPacket.NewConnectPayLoad(uuid.New().String(), "", "", c.options.Username, c.options.Password)
-	connectPack := protocolPacket.NewConnectPacket(30, false,0, payLoad)
+	connectPack := protocolPacket.NewConnectPacket(30, false, 0, payLoad)
 	connectPack.Write(conn)
 
 	var fh protocolPacket.FixedHeader
