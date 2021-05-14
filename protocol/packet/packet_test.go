@@ -3,6 +3,7 @@ package packet
 import (
 	"github.com/zengzhuozhen/gomq/protocol"
 	"github.com/zengzhuozhen/gomq/protocol/utils"
+	"reflect"
 	"testing"
 )
 
@@ -13,19 +14,20 @@ func TestIsLegalIdentifier(t *testing.T) {
 var ConnectFlagTests = []struct {
 	CleanSession bool
 	WillFlag     bool
-	WillQos      bool
+	WillQos      uint8
 	WillRetain   bool
-	UserNameFlag bool
 	PasswordFlag bool
+	UserNameFlag bool
 	out          byte
 }{
-	{false, false, false, false, false, false, 0},
-	{true, false, false, false, false, false, 2},
-	{false, true, false, false, false, false, 4},
-	{false, false, true, false, false, false, 24},
-	{false, false, false, true, false, false, 32},
-	{false, false, false, false, false, true, 64},
-	{false, false, false, false, true, false, 128},
+	{false, false, 0, false, false, false, 0},
+	{true, false, 0, false, false, false, 2},
+	{false, true, 0, false, false, false, 4},
+	{false, false, 1, false, false, false, 8},
+	{false, false, 2, false, false, false, 16},
+	{false, false, 0, true, false, false, 32},
+	{false, false, 0, false, true, false, 64},
+	{false, false, 0, false, false, true, 128},
 }
 
 func TestEncodeConnectFlag(t *testing.T) {
@@ -40,6 +42,30 @@ func TestEncodeConnectFlag(t *testing.T) {
 		}
 		if connectFlag.encode() != tt.out {
 			t.Errorf("%d => %q, wanted: %q", i, connectFlag.encode(), tt.out)
+		}
+	}
+}
+
+var ConnectFlagDecodeTests = []struct{
+	in byte
+	connectFlags  ConnectFlags
+}{
+	{0,ConnectFlags{false, false, 0, false, false, false}},
+	{2,ConnectFlags{true, false, 0, false, false, false}},
+	{4,ConnectFlags{false, true, 0, false, false, false}},
+	{8,ConnectFlags{false, false, 1, false, false, false}},
+	{16,ConnectFlags{false, false, 2, false, false, false}},
+	{32,ConnectFlags{false, false, 0, true, false, false}},
+	{64,ConnectFlags{false, false, 0, false, true, false}},
+	{128,ConnectFlags{false, false, 0, false, false, true}},
+}
+
+func TestDecodeConnectFlag(t *testing.T){
+	for i, tt := range ConnectFlagDecodeTests {
+		connectFlag := ConnectFlags{}
+		connectFlag.decode(tt.in)
+		if reflect.DeepEqual(connectFlag,tt.connectFlags) == false{
+			t.Errorf("%d => %v, wanted: %v", i, connectFlag, tt.connectFlags)
 		}
 	}
 }

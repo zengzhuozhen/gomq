@@ -52,7 +52,7 @@ func (c *client) connect() error {
 	}
 	c.conn = conn
 	payLoad := protocolPacket.NewConnectPayLoad(uuid.New().String(), "", "", c.options.Username, c.options.Password)
-	connectPack := protocolPacket.NewConnectPacket(30, false, payLoad)
+	connectPack := protocolPacket.NewConnectPacket(30, false,0, payLoad)
 	connectPack.Write(conn)
 
 	var fh protocolPacket.FixedHeader

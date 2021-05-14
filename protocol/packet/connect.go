@@ -23,8 +23,8 @@ type ConnectFlags struct {
 	WillFlag     bool
 	WillQos      uint8
 	WillRetain   bool
-	UserNameFlag bool
 	PasswordFlag bool
+	UserNameFlag bool
 }
 
 type ConnectPacketPayLoad struct {
@@ -45,8 +45,8 @@ func NewConnectPayLoad(clientId, willTopic, willMessage, userName, password stri
 	}
 }
 
-func NewConnectPacket(keepAlive uint16, cleanSession bool, payLoad *ConnectPacketPayLoad) ConnectPacket {
-	connectFlag, payLoadData := payLoad.encode(cleanSession)
+func NewConnectPacket(keepAlive uint16, cleanSession bool,WillQoS uint8, payLoad *ConnectPacketPayLoad) ConnectPacket {
+	connectFlag, payLoadData := payLoad.encode(cleanSession,WillQoS)
 	return ConnectPacket{
 		FixedHeader: FixedHeader{
 			TypeAndReserved: utils.EncodePacketType(byte(protocol.CONNECT)),
@@ -167,12 +167,10 @@ func (c *ConnectFlags) encode() byte {
 	if c.WillFlag {
 		res += 1 << 2
 	}
-	if c.WillQos == 0{
+	 if c.WillQos == 1{
 		res += 1<<3
-	}else if c.WillQos == 1{
-		res += 1<<4
 	}else if c.WillQos == 2{
-		res += 1<<3+1<<4
+		res += 1<<4
 	}
 	if c.WillRetain {
 		res += 1 << 5
@@ -199,19 +197,14 @@ func (c *ConnectFlags) decode(b byte) () {
 		b -= 32
 		c.WillRetain = true
 	}
-	if b >= 24 {
-		b -= 24
-		c.WillQos = 2
-	}
 	if b >= 16 {
 		b -= 16
+		c.WillQos = 2
+	}
+	if b >= 8 {
+		b -= 8
 		c.WillQos = 1
 	}
-	if b >= 8{
-		b-= 8
-		c.WillQos = 0
-	}
-
 	if b >= 4 {
 		b -= 4
 		c.WillFlag = true
@@ -223,7 +216,7 @@ func (c *ConnectFlags) decode(b byte) () {
 	return
 }
 
-func (payLoad ConnectPacketPayLoad) encode(cleanSession bool) (*ConnectFlags, []byte) {
+func (payLoad ConnectPacketPayLoad) encode(cleanSession bool,WillQoS uint8) (*ConnectFlags, []byte) {
 	var payLoadData []byte
 	connectFlag := new(ConnectFlags)
 	connectFlag.CleanSession = cleanSession
@@ -233,6 +226,7 @@ func (payLoad ConnectPacketPayLoad) encode(cleanSession bool) (*ConnectFlags, []
 
 	if payLoad.WillTopic != "" && payLoad.WillMessage != "" {
 		connectFlag.WillFlag = true
+		connectFlag.WillQos = WillQoS
 		temp = utils.EncodeString(payLoad.WillTopic)
 		payLoadData = append(payLoadData, temp...)
 		temp = utils.EncodeString(payLoad.WillMessage)

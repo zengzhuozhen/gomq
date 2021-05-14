@@ -28,10 +28,10 @@ func NewConsumer(opts *Option) *Consumer {
 	return &Consumer{client: client, ctx: ctx, cancelFunc: cancel}
 }
 
-func (c *Consumer) Subscribe(topic []string, QOSRequire int) <-chan *common.MessageUnit {
+func (c *Consumer) Subscribe(topic []string, QoSRequire int) <-chan *common.MessageUnit {
 	c.topic = topic
 	// 连接服务端
-	subscribePacket := protocolPacket.NewSubscribePacket(c.client.getAvailableIdentity(), topic, byte(QOSRequire))
+	subscribePacket := protocolPacket.NewSubscribePacket(c.client.getAvailableIdentity(), topic, byte(QoSRequire))
 	err := subscribePacket.Write(c.client.conn)
 	if err != nil {
 		log.Errorf("客户端订阅主题失败:发送subscribe")

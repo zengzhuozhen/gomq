@@ -161,6 +161,11 @@ func (c container) handleUserNameAndPassword(controlPacket packet.ControlPacket)
 }
 
 func (container) handleCleanSession(controlPacket packet.ControlPacket) error {
+	connectPacket := controlPacket.(*packet.ConnectPacket)
+	connectFlags := connectPacket.ProvisionConnectFlags()
+	if connectFlags.CleanSession{
+		// cleanSession todo
+	}
 	return nil
 }
 
