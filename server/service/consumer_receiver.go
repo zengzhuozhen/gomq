@@ -26,7 +26,7 @@ func NewConsumerReceiver(chanAssemble map[string][]common.MsgUnitChan) *Consumer
 		ChanAssemble: chanAssemble,
 		QoSGuarantee: make(map[string]QoSForTopic),
 		Pool: &Pool{
-			Connections: make(map[string]*ConnectionAbstract, 1024),
+			Connections: make(map[string]*common.ConnectionAbstract, 1024),
 			State:       new(sync.Map),
 			mu:          new(sync.Mutex),
 		},
@@ -148,7 +148,7 @@ func (r *ConsumerReceiver) Pong(conn net.Conn) {
 
 // Pool is a relation collection of any connective consumer,including consumer position ,subscribe topic,and so on...
 type Pool struct {
-	Connections map[string]*ConnectionAbstract
+	Connections map[string]*common.ConnectionAbstract
 	// State 存储客户端活跃状态
 	State *sync.Map
 	mu    *sync.Mutex
@@ -157,7 +157,7 @@ type Pool struct {
 func (p *Pool) ForeachActiveConn() []string {
 	connUids := make([]string, 0)
 	p.State.Range(func(connUid, isActive interface{}) bool {
-		if isActive.(bool) == true && p.Connections[connUid.(string)].IsEmptyTopic() {
+		if isActive.(bool) == true && p.Connections[connUid.(string)].IsEmptyTopic() == false {
 			connUids = append(connUids, connUid.(string))
 		}
 		return true

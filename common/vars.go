@@ -6,7 +6,6 @@ import (
 
 var Endpoint = flag.String("Endpoint", ":9000", "mq服务运行地址")
 var Dirname = flag.String("Dirname", "/var/log/tempmq/", "mq数据保存文件夹路径")
-var KeepAlice uint16
 var EtcdUrl string
 
 func init() {

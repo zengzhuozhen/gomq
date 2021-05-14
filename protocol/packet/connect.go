@@ -21,27 +21,27 @@ type ConnectPacket struct {
 type ConnectFlags struct {
 	CleanSession bool // todo 为true,则每次连接都是新的连接，为fasle，连接后需要处理旧的数据(qos相关)
 	WillFlag     bool
-	WillQos      bool
+	WillQos      uint8
 	WillRetain   bool
 	UserNameFlag bool
 	PasswordFlag bool
 }
 
 type ConnectPacketPayLoad struct {
-	clientId    string // 客户端标识，非报文标识符
-	willTopic   string
-	willMessage string
-	userName    string
-	password    string
+	ClientId    string // 客户端标识，非报文标识符
+	WillTopic   string
+	WillMessage string
+	UserName    string
+	Password    string
 }
 
 func NewConnectPayLoad(clientId, willTopic, willMessage, userName, password string) *ConnectPacketPayLoad {
 	return &ConnectPacketPayLoad{
-		clientId:    clientId,
-		willTopic:   willTopic,
-		willMessage: willMessage,
-		userName:    userName,
-		password:    password,
+		ClientId:    clientId,
+		WillTopic:   willTopic,
+		WillMessage: willMessage,
+		UserName:    userName,
+		Password:    password,
 	}
 }
 
@@ -112,7 +112,7 @@ func (c *ConnectPacket) IsReserved() bool {
 
 func (c *ConnectPacketPayLoad) IsLegalClientId() bool {
 	mode := "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-	for _, i := range c.clientId {
+	for _, i := range c.ClientId {
 		if !strings.Contains(mode, string(i)) {
 			return false
 		}
@@ -126,16 +126,22 @@ func (c *ConnectPacketPayLoad) IsAuthorizedClient() bool {
 }
 
 func (c *ConnectPacketPayLoad) IsCorrectSecret(getSecretFunc func(string) string) bool {
-	if c.userName == ""{
+	if c.UserName == ""{
 		return true
 	}
-	return  getSecretFunc(c.userName) == c.password
+	return  getSecretFunc(c.UserName) == c.Password
+}
+
+// ProvisionConnectFlags Provision Connection Flags
+func (c *ConnectPacket) ProvisionConnectFlags() *ConnectFlags {
+	connectFlags := new(ConnectFlags)
+	connectFlags.decode(c.ConnectFlags)
+	return connectFlags
 }
 
 // ProvisionConnectFlagsAndPayLoad 根据 connectPacket包提取 connectFlags 和 payLoad 结构
 func (c *ConnectPacket) ProvisionConnectFlagsAndPayLoad() (*ConnectFlags, *ConnectPacketPayLoad) {
-	connectFlags := new(ConnectFlags)
-	connectFlags.decode(c.ConnectFlags)
+	connectFlags := c.ProvisionConnectFlags()
 	payLoad := new(ConnectPacketPayLoad)
 	payLoad.decode(c.payLoad, *connectFlags)
 	return connectFlags, payLoad
@@ -150,7 +156,7 @@ func (c *ConnectPacket) Visit(fn VisitorFunc) error {
 // 遗嘱标志 Will Flag 		位置：连接标志的第2位。	    +4
 // 遗嘱QoS Will QoS			位置：连接标志的第4和第3位。   +8 +16
 // 遗嘱保留 Will Retain	   	位置：连接标志的第5位。	   +32
-// 密码标志 password Flag    位置：连接标志的第6位。	   +64
+// 密码标志 Password Flag    位置：连接标志的第6位。	   +64
 // 用户名标志 User Name Flag 位置：连接标志的第7位。	   	   +128
 
 func (c *ConnectFlags) encode() byte {
@@ -161,8 +167,12 @@ func (c *ConnectFlags) encode() byte {
 	if c.WillFlag {
 		res += 1 << 2
 	}
-	if c.WillQos {
-		res += 1<<3 + 1<<4
+	if c.WillQos == 0{
+		res += 1<<3
+	}else if c.WillQos == 1{
+		res += 1<<4
+	}else if c.WillQos == 2{
+		res += 1<<3+1<<4
 	}
 	if c.WillRetain {
 		res += 1 << 5
@@ -189,12 +199,21 @@ func (c *ConnectFlags) decode(b byte) () {
 		b -= 32
 		c.WillRetain = true
 	}
+	if b >= 24 {
+		b -= 24
+		c.WillQos = 2
+	}
 	if b >= 16 {
 		b -= 16
-		c.WillQos = true
+		c.WillQos = 1
 	}
-	if b >= 12 {
-		b -= 12
+	if b >= 8{
+		b-= 8
+		c.WillQos = 0
+	}
+
+	if b >= 4 {
+		b -= 4
 		c.WillFlag = true
 	}
 	if b >= 2 {
@@ -209,24 +228,24 @@ func (payLoad ConnectPacketPayLoad) encode(cleanSession bool) (*ConnectFlags, []
 	connectFlag := new(ConnectFlags)
 	connectFlag.CleanSession = cleanSession
 
-	temp := utils.EncodeString(payLoad.clientId)
+	temp := utils.EncodeString(payLoad.ClientId)
 	payLoadData = append(payLoadData, temp...)
 
-	if payLoad.willTopic != "" && payLoad.willMessage != "" {
+	if payLoad.WillTopic != "" && payLoad.WillMessage != "" {
 		connectFlag.WillFlag = true
-		temp = utils.EncodeString(payLoad.willTopic)
+		temp = utils.EncodeString(payLoad.WillTopic)
 		payLoadData = append(payLoadData, temp...)
-		temp = utils.EncodeString(payLoad.willMessage)
+		temp = utils.EncodeString(payLoad.WillMessage)
 		payLoadData = append(payLoadData, temp...)
 	}
-	if payLoad.userName != "" {
+	if payLoad.UserName != "" {
 		connectFlag.UserNameFlag = true
-		temp = utils.EncodeString(payLoad.userName)
+		temp = utils.EncodeString(payLoad.UserName)
 		payLoadData = append(payLoadData, temp...)
 	}
-	if payLoad.password != "" {
+	if payLoad.Password != "" {
 		connectFlag.PasswordFlag = true
-		temp = utils.EncodeString(payLoad.password)
+		temp = utils.EncodeString(payLoad.Password)
 		payLoadData = append(payLoadData, temp...)
 	}
 	return connectFlag, payLoadData
@@ -236,16 +255,16 @@ func (payLoad ConnectPacketPayLoad) decode(payLoadData []byte, flags ConnectFlag
 	var err error
 	buffer := new(bytes.Buffer)
 	buffer.Write(payLoadData)
-	payLoad.clientId, err = utils.DecodeString(buffer)
+	payLoad.ClientId, err = utils.DecodeString(buffer)
 	if flags.WillFlag {
-		payLoad.willTopic, err = utils.DecodeString(buffer)
-		payLoad.willMessage, err = utils.DecodeString(buffer)
+		payLoad.WillTopic, err = utils.DecodeString(buffer)
+		payLoad.WillMessage, err = utils.DecodeString(buffer)
 	}
 	if flags.UserNameFlag {
-		payLoad.userName, err = utils.DecodeString(buffer)
+		payLoad.UserName, err = utils.DecodeString(buffer)
 	}
 	if flags.PasswordFlag {
-		payLoad.password, err = utils.DecodeString(buffer)
+		payLoad.Password, err = utils.DecodeString(buffer)
 	}
 	if err != nil {
 		panic("decode payload failed")

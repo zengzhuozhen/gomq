@@ -47,4 +47,5 @@ const (
 	UnAvailableService
 	UserAndPassError
 	UnAuthorization
+	ErrorParams
 )

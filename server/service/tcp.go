@@ -109,7 +109,8 @@ func (tcp *TCP) popQueue(uid, topic string, topicIndex int) {
 func (tcp *TCP) holdConn(conn net.Conn) {
 	// 如果没有可读数据，也就是读 buffer 为空，则阻塞
 	ctx, cancel := context.WithCancel(context.Background())
-	_ = conn.SetDeadline(time.Now().Add(time.Duration(common.KeepAlice) * time.Second))
+	keepAlive := tcp.ConsumerReceiver.Pool.Connections[conn.RemoteAddr().String()].KeepAlive
+	_ = conn.SetDeadline(time.Now().Add(time.Duration(keepAlive) * time.Second))
 	for {
 		packet, err := ReadPacket(conn)
 		if err != nil {
@@ -155,7 +156,8 @@ func (tcp *TCP) handleConnectProtocol(conn net.Conn) bool {
 		conn.Close()
 		return false
 	}
-	if err = visit.NewConnectPacketVisitor(&visit.PacketVisitor{Packet: &connPacket},tcp.ConsumerReceiver.Pool.Connections).
+	tcp.ConsumerReceiver.Pool.Connections[conn.RemoteAddr().String()] = &common.ConnectionAbstract{}
+	if err = visit.NewConnectPacketVisitor(&visit.PacketVisitor{Packet: &connPacket},tcp.ConsumerReceiver.Pool.Connections[conn.RemoteAddr().String()]).
 		Visit(func(packet protocolPacket.ControlPacket) error { // 正常连接，返回连接成功ack
 		responseConnectAck(conn, protocol.ConnectAccess)
 		return nil

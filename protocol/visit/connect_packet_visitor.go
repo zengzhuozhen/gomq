@@ -7,7 +7,6 @@ import (
 	"github.com/zengzhuozhen/gomq/protocol"
 	"github.com/zengzhuozhen/gomq/protocol/packet"
 	"github.com/zengzhuozhen/gomq/protocol/utils"
-	"github.com/zengzhuozhen/gomq/server/service"
 	"go.etcd.io/etcd/clientv3"
 	"reflect"
 	"time"
@@ -37,18 +36,18 @@ func (v *ConnectPacketVisitor) Visit(fn packet.VisitorFunc) error {
 	return v.filteredVisitor.Visit(fn)
 }
 
-func NewConnectPacketVisitor(visitor packet.Visitor, connections map[string]*service.ConnectionAbstract) *ConnectPacketVisitor {
-	container := container{connections: connections}
+func NewConnectPacketVisitor(visitor packet.Visitor, connection *common.ConnectionAbstract) *ConnectPacketVisitor {
+	container := container{connection: connection}
 	return &ConnectPacketVisitor{
 		filteredVisitor: packet.NewFilteredVisitor(visitor,
-			protocolNameValidate,
-			protocolLevelValidate,
+			container.protocolNameValidate,
+			container.protocolLevelValidate,
 			container.handleConnectFlag,
-			handleKeepAlive,
-			clientIdentifierValidate,
-			handleWillTopic,
-			handleWillMessage,
-			handleUserNameAndPassword,
+			container.handleKeepAlive,
+			container.clientIdentifierValidate,
+			container.handleWillTopic,
+			container.handleWillMessage,
+			container.handleUserNameAndPassword,
 		),
 	}
 }
@@ -61,8 +60,8 @@ func (v *ConnectFlagVisitor) Visit(fn packet.VisitorFunc) error {
 	return v.decoratedVisitor.Visit(fn)
 }
 
-func newConnectFlagVisitor(visitor packet.Visitor, connections map[string]*service.ConnectionAbstract) *ConnectFlagVisitor {
-	container := container{connections: connections}
+func newConnectFlagVisitor(visitor packet.Visitor, connection *common.ConnectionAbstract) *ConnectFlagVisitor {
+	container := container{connection: connection}
 	return &ConnectFlagVisitor{
 		decoratedVisitor: packet.NewDecoratedVisitor(visitor,
 			container.handleCleanSession,
@@ -75,7 +74,7 @@ func newConnectFlagVisitor(visitor packet.Visitor, connections map[string]*servi
 	}
 }
 
-func protocolNameValidate(controlPacket packet.ControlPacket) error {
+func (c container) protocolNameValidate(controlPacket packet.ControlPacket) error {
 	connectPacket := controlPacket.(*packet.ConnectPacket)
 	if reflect.DeepEqual(connectPacket.TypeAndReserved, utils.EncodeString("MQTT")) {
 		return NewConnectError(protocol.UnSupportProtocolType, "客户端使用的协议错误")
@@ -83,7 +82,7 @@ func protocolNameValidate(controlPacket packet.ControlPacket) error {
 	return nil
 }
 
-func protocolLevelValidate(controlPacket packet.ControlPacket) error {
+func (c container) protocolLevelValidate(controlPacket packet.ControlPacket) error {
 	connectPacket := controlPacket.(*packet.ConnectPacket)
 	if !connectPacket.IsSuitableProtocolLevel() {
 		return NewConnectError(protocol.UnSupportProtocolVersion, "不满足客户端要求的协议等级")
@@ -93,7 +92,7 @@ func protocolLevelValidate(controlPacket packet.ControlPacket) error {
 
 func (c container) handleConnectFlag(controlPacket packet.ControlPacket) error {
 	connectPacket := controlPacket.(*packet.ConnectPacket)
-	return newConnectFlagVisitor(&PacketVisitor{Packet: connectPacket}, c.connections).Visit(func(controlPacket packet.ControlPacket) error {
+	return newConnectFlagVisitor(&PacketVisitor{Packet: connectPacket}, c.connection).Visit(func(controlPacket packet.ControlPacket) error {
 		if !connectPacket.IsReserved() {
 			return NewConnectError(protocol.UnAvailableService, "CONNECT控制报文的保留标志位必须为0")
 		}
@@ -102,13 +101,13 @@ func (c container) handleConnectFlag(controlPacket packet.ControlPacket) error {
 }
 
 // handleKeepAlive 如果保持连接的值非零，并且服务端在一点五倍的保持连接时间内没有收到客户端的控制报文，它必须断开客户端的网络连接，认为网络连接已断开
-func handleKeepAlive(controlPacket packet.ControlPacket) error {
+func (c container) handleKeepAlive(controlPacket packet.ControlPacket) error {
 	connectPacket := controlPacket.(*packet.ConnectPacket)
-	common.KeepAlice = connectPacket.KeepAlive
+	c.connection.KeepAlive = connectPacket.KeepAlive
 	return nil
 }
 
-func clientIdentifierValidate(controlPacket packet.ControlPacket) error {
+func (c container) clientIdentifierValidate(controlPacket packet.ControlPacket) error {
 	connectPacket := controlPacket.(*packet.ConnectPacket)
 	_, connectPayLoad := connectPacket.ProvisionConnectFlagsAndPayLoad()
 	if !connectPayLoad.IsLegalClientId() {
@@ -120,17 +119,25 @@ func clientIdentifierValidate(controlPacket packet.ControlPacket) error {
 	return nil
 }
 
-func handleWillTopic(controlPacket packet.ControlPacket) error {
-	// todo
+func (c container) handleWillTopic(controlPacket packet.ControlPacket) error {
+	connectPacket := controlPacket.(*packet.ConnectPacket)
+	_, connectPayLoad := connectPacket.ProvisionConnectFlagsAndPayLoad()
+	if c.connection.WillFlag{
+		c.connection.WillTopic = connectPayLoad.WillTopic
+	}
 	return nil
 }
 
-func handleWillMessage(controlPacket packet.ControlPacket) error {
-	// todo
+func (c container) handleWillMessage(controlPacket packet.ControlPacket) error {
+	connectPacket := controlPacket.(*packet.ConnectPacket)
+	_, connectPayLoad := connectPacket.ProvisionConnectFlagsAndPayLoad()
+	if c.connection.WillFlag{
+		c.connection.WillMessage = connectPayLoad.WillMessage
+	}
 	return nil
 }
 
-func handleUserNameAndPassword(controlPacket packet.ControlPacket) error {
+func (c container) handleUserNameAndPassword(controlPacket packet.ControlPacket) error {
 	var password string
 
 	etcd, _ := clientv3.New(clientv3.Config{
@@ -157,28 +164,66 @@ func (container) handleCleanSession(controlPacket packet.ControlPacket) error {
 	return nil
 }
 
-func (container) handleWillFlag(controlPacket packet.ControlPacket) error {
+// handleWillFlag
+// 遗嘱消息发布的条件，包括但不限于：
+// 服务端检测到了一个I/O错误或者网络故障。
+// 客户端在保持连接（Keep Alive）的时间内未能通讯。
+// 客户端没有先发送DISCONNECT报文直接关闭了网络连接。
+// 由于协议错误服务端关闭了网络连接。
+func (c container) handleWillFlag(controlPacket packet.ControlPacket) error {
 	connectPacket := controlPacket.(*packet.ConnectPacket)
-	connectFlags, _ := connectPacket.ProvisionConnectFlagsAndPayLoad()
-	if connectFlags.WillFlag {
-		// todo 设置遗嘱消息，服务端与客户端断开连接时发送该消息
+	connectFlags := connectPacket.ProvisionConnectFlags()
+	// 如果遗嘱标志被设置为1，连接标志中的Will QoS和Will Retain字段会被服务端用到，同时有效载荷中必须包含Will Topic和Will Message字段 [MQTT-3.1.2-9]。
+	// 一旦被发布或者服务端收到了客户端发送的DISCONNECT报文，遗嘱消息就必须从存储的会话状态中移除 [MQTT-3.1.2-10]。
+	// 如果遗嘱标志被设置为0，连接标志中的Will QoS和Will Retain字段必须设置为0，并且有效载荷中不能包含Will Topic和Will Message字段 [MQTT-3.1.2-11]。
+	// 如果遗嘱标志被设置为0，网络连接断开时，不能发送遗嘱消息 [MQTT-3.1.2-12]。
+	c.connection.WillFlag = connectFlags.WillFlag
+	return nil
+}
 
+func (c container) handleWillQos(controlPacket packet.ControlPacket) error {
+	connectPacket := controlPacket.(*packet.ConnectPacket)
+	connectFlags := connectPacket.ProvisionConnectFlags()
+	// 如果遗嘱标志被设置为0，遗嘱QoS也必须设置为0(0x00) [MQTT-3.1.2-13]。
+	// 如果遗嘱标志被设置为1，遗嘱QoS的值可以等于0(0x00)，1(0x01)，2(0x02)。它的值不能等于3 [MQTT-3.1.2-14]。
+	if connectFlags.WillFlag == false && connectFlags.WillQos != 0 {
+		return NewConnectError(protocol.ErrorParams, "遗嘱标志为0，遗嘱QoS也必须为0")
 	}
+	c.connection.WillQos = connectFlags.WillQos
 	return nil
 }
 
-func (container) handleWillQos(controlPacket packet.ControlPacket) error {
+func (c container) handleWillRetain(controlPacket packet.ControlPacket) error {
+	connectPacket := controlPacket.(*packet.ConnectPacket)
+	connectFlags := connectPacket.ProvisionConnectFlags()
+	// 如果遗嘱标志被设置为0，遗嘱保留（Will Retain）标志也必须设置为0 [MQTT-3.1.2-15]。
+	// 如果遗嘱保留被设置为0，服务端必须将遗嘱消息当作非保留消息发布 [MQTT-3.1.2-16]。
+	// 如果遗嘱保留被设置为1，服务端必须将遗嘱消息当作保留消息发布 [MQTT-3.1.2-17]。
+	if connectFlags.WillFlag == false && connectFlags.WillRetain == true {
+		return NewConnectError(protocol.ErrorParams, "遗嘱标志为0，遗嘱保留也必须为0")
+	}
+	c.connection.WillRetain = connectFlags.WillRetain
 	return nil
 }
 
-func (container) handleWillRetain(controlPacket packet.ControlPacket) error {
+func (c container) handleUsernameFlag(controlPacket packet.ControlPacket) error {
+	connectPacket := controlPacket.(*packet.ConnectPacket)
+	connectFlags := connectPacket.ProvisionConnectFlags()
+	// 如果用户名（User Name）标志被设置为0，有效载荷中不能包含用户名字段 [MQTT-3.1.2-18]。
+	// 如果用户名（User Name）标志被设置为1，有效载荷中必须包含用户名字段 [MQTT-3.1.2-19]。
+	c.connection.UserNameFlag = connectFlags.UserNameFlag
 	return nil
 }
 
-func (container) handleUsernameFlag(controlPacket packet.ControlPacket) error {
-	return nil
-}
-
-func (container) handlePasswordFlag(controlPacket packet.ControlPacket) error {
+func (c container) handlePasswordFlag(controlPacket packet.ControlPacket) error {
+	connectPacket := controlPacket.(*packet.ConnectPacket)
+	connectFlags := connectPacket.ProvisionConnectFlags()
+	// 如果密码（Password）标志被设置为0，有效载荷中不能包含密码字段 [MQTT-3.1.2-20]。
+	// 如果密码（Password）标志被设置为1，有效载荷中必须包含密码字段 [MQTT-3.1.2-21]。
+	// 如果用户名标志被设置为0，密码标志也必须设置为0 [MQTT-3.1.2-22]。
+	if connectFlags.UserNameFlag == false && connectFlags.PasswordFlag == true {
+		return NewConnectError(protocol.ErrorParams, "遗嘱标志为0，遗嘱保留也必须为0")
+	}
+	c.connection.PasswordFlag = connectFlags.PasswordFlag
 	return nil
 }

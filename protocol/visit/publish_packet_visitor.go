@@ -43,17 +43,17 @@ func handleDup(controlPacket packet.ControlPacket) error {
 	return nil
 }
 
-func (rqc container) handleRetain(controlPacket packet.ControlPacket) error {
+func (c container) handleRetain(controlPacket packet.ControlPacket) error {
 	publishPacket := controlPacket.(*packet.PublishPacket)
 	if publishPacket.Retain() == true  {
 		if publishPacket.QoS() == 0{
 			// 丢弃之前保留的主题信息,将该消息作为最新的保留消息
-			rqc.retainQueue.Reset(publishPacket.TopicName)
+			c.retainQueue.Reset(publishPacket.TopicName)
 		}
 		message := new(common.Message)
 		message = message.UnPack(publishPacket.Payload)
 		messageUnit := common.NewMessageUnit(publishPacket.TopicName, publishPacket.QoS(), *message)
-		rqc.retainQueue.Push(messageUnit)
+		c.retainQueue.Push(messageUnit)
 	}
 	return nil
 }
