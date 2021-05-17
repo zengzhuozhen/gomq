@@ -164,7 +164,7 @@ func (container) handleCleanSession(controlPacket packet.ControlPacket) error {
 	connectPacket := controlPacket.(*packet.ConnectPacket)
 	connectFlags := connectPacket.ProvisionConnectFlags()
 	if connectFlags.CleanSession{
-		// cleanSession todo
+		// cleanSession todo 清除服务端的session
 	}
 	return nil
 }
@@ -227,7 +227,7 @@ func (c container) handlePasswordFlag(controlPacket packet.ControlPacket) error 
 	// 如果密码（Password）标志被设置为1，有效载荷中必须包含密码字段 [MQTT-3.1.2-21]。
 	// 如果用户名标志被设置为0，密码标志也必须设置为0 [MQTT-3.1.2-22]。
 	if connectFlags.UserNameFlag == false && connectFlags.PasswordFlag == true {
-		return NewConnectError(protocol.ErrorParams, "遗嘱标志为0，遗嘱保留也必须为0")
+		return NewConnectError(protocol.ErrorParams, "用户名标志为0，密码标志也必须设置为0")
 	}
 	c.connection.PasswordFlag = connectFlags.PasswordFlag
 	return nil

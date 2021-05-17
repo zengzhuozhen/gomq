@@ -3,6 +3,9 @@ package broker
 import "testing"
 
 func TestRunMemberBroker(t *testing.T){
-	opts := NewOption(Member, "127.0.0.1:9001","/var/log/tempmq.log", []string{"127.0.0.1:2379"})
-	NewBroker(opts).Run()
+	NewBroker(ServerType(Member),
+		EndPoint("127.0.0.1:9001"),
+		Dirname("/var/log/tempmq.log"),
+		EtcdUrl([]string{"127.0.0.1:2379"}),
+	).Run()
 }

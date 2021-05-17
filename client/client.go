@@ -21,7 +21,7 @@ type Option struct {
 	WillMessage  string
 	WillQoS      uint8
 	CleanSession bool
-	KeepAlive    bool
+	KeepAlive    uint16
 }
 
 type client struct {
@@ -56,8 +56,8 @@ func (c *client) connect() error {
 		return err
 	}
 	c.conn = conn
-	payLoad := protocolPacket.NewConnectPayLoad(uuid.New().String(), "", "", c.options.Username, c.options.Password)
-	connectPack := protocolPacket.NewConnectPacket(30, false, 0, payLoad)
+	payLoad := protocolPacket.NewConnectPayLoad(uuid.New().String(), c.options.WillTopic, c.options.WillMessage, c.options.Username, c.options.Password)
+	connectPack := protocolPacket.NewConnectPacket(c.options.KeepAlive, c.options.CleanSession, c.options.WillQoS, payLoad)
 	connectPack.Write(conn)
 
 	var fh protocolPacket.FixedHeader
