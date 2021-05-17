@@ -47,12 +47,12 @@ func (p *Producer) Publish(messageUnit common.MessageUnit, QoS, retain int) {
 	case protocol.AtLeastOnce:
 		resendPacket := protocolPacket.NewPublishPacket(messageUnit.Topic, messageUnit.Data, false, QoS, retain, identity)
 		go p.overtimeResendPublish(ctx, resendPacket)
-		p.client.statusCache.save(&resendPacket) // 如果断线重发，应该采用重发的包
+		p.client.session.save(&resendPacket) // 如果断线重发，应该采用重发的包
 		p.WaitAck()
 	case protocol.ExactOnce:
 		resendPacket := protocolPacket.NewPublishPacket(messageUnit.Topic, messageUnit.Data, false, QoS, retain, identity)
 		go p.overtimeResendPublish(ctx, resendPacket)
-		p.client.statusCache.save(&resendPacket) // 同上
+		p.client.session.save(&resendPacket) // 同上
 		p.WaitRecAndComp()
 	}
 	return
@@ -68,7 +68,7 @@ func (p *Producer) WaitAck() {
 
 	p.client.IdentityPool[int(pubAckPacket.PacketIdentifier)] = true
 	fmt.Println("读取到puback，完成publish")
-	p.client.statusCache.remove(&pubAckPacket)
+	p.client.session.remove(&pubAckPacket)
 	p.cancelResendPublishFunc()
 	return
 }
@@ -88,8 +88,8 @@ func (p *Producer) WaitRecAndComp() {
 			packet = &protocolPacket.PubRecPacket{}
 			_ = packet.Read(p.client.conn, fh)
 			p.client.IdentityPool[int(packet.(*protocolPacket.PubRecPacket).PacketIdentifier)] = true
-			p.client.statusCache.save(packet)
-			p.client.statusCache.remove(packet)
+			p.client.session.save(packet)
+			p.client.session.remove(packet)
 
 			// PUBREL – 发布释放（QoS 2，第二步)
 			pubRelPacket := protocolPacket.NewPubRelPacket(packet.(*protocolPacket.PubRecPacket).PacketIdentifier)
@@ -99,8 +99,8 @@ func (p *Producer) WaitRecAndComp() {
 			ctx, cancelFunc := context.WithCancel(context.Background())
 			p.cancelResendPubrelFunc = cancelFunc
 			p.client.IdentityPool[int(packet.(*protocolPacket.PubRecPacket).PacketIdentifier)] = false
-			p.client.statusCache.save(&pubRelPacket)
-			p.client.statusCache.remove(&pubRelPacket)
+			p.client.session.save(&pubRelPacket)
+			p.client.session.remove(&pubRelPacket)
 			go p.overtimeResendPubrel(ctx, pubRelPacket)
 
 		case byte(protocol.PUBCOMP):
@@ -109,7 +109,7 @@ func (p *Producer) WaitRecAndComp() {
 			fmt.Println("收到comp,完成publish")
 			p.cancelResendPubrelFunc()
 			p.client.IdentityPool[int(packet.(*protocolPacket.PubCompPacket).PacketIdentifier)] = true
-			p.client.statusCache.remove(packet)
+			p.client.session.remove(packet)
 			return
 		}
 	}

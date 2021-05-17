@@ -7,7 +7,7 @@ type RetainQueue struct {
 	capFunc          func(topic string) int
 }
 
-// todo 优化，这里通过函数定义解决依赖问题，考虑其他更好的方式
+// NewRetainQueue return retain queue
 func NewRetainQueue(readAllFunc func(topic string) []MessageUnit, resetFunc func(topic string), capFunc func(topic string) int) *RetainQueue {
 	return &RetainQueue{
 		ToPersistentChan: make(chan MessageUnit),

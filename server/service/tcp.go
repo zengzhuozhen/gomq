@@ -80,8 +80,8 @@ func (tcp *TCP) startConnLoop() {
 }
 
 func (tcp *TCP) popRetainQueue(uid, topic string, topicIndex int) {
-	// todo 优化，每次都要去查一遍保留队列是否为空，并且是IO操作
 	if !tcp.ConsumerReceiver.Pool.Connections[uid].IsOldOne {
+		// todo 优化，每次都要去查一遍保留队列是否为空，并且是IO操作，考虑用cache标识是否retain里面有值
 		if tcp.ProducerReceiver.RetainQueue.Cap(topic) > 0 { // 读一下retainQueue的保留内容
 			msgList := tcp.ProducerReceiver.RetainQueue.ReadAll(topic)
 			for _, msg := range msgList {
@@ -176,7 +176,7 @@ func responseConnectAck(conn net.Conn, code byte) {
 	connectAckPacket.Write(conn)
 }
 
-// 读取数据包
+// ReadPacket 读取数据包
 func ReadPacket(r io.Reader) (protocolPacket.ControlPacket, error) {
 	var fh protocolPacket.FixedHeader
 	if err := fh.Read(r); err != nil && err != io.EOF {

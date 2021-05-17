@@ -29,7 +29,7 @@ type client struct {
 	optionsMu    sync.Mutex
 	conn         net.Conn
 	IdentityPool map[int]bool
-	statusCache  *PacketStateCache
+	session      *PacketStateSession
 }
 
 func newClient(opt *Option) *client {
@@ -41,7 +41,7 @@ func newClient(opt *Option) *client {
 		options:      opt,
 		optionsMu:    sync.Mutex{},
 		IdentityPool: identityPool,
-		statusCache: &PacketStateCache{
+		session: &PacketStateSession{
 			Pub: make(map[uint16]interface{}),
 			Rel: make(map[uint16]interface{}),
 			Rec: make(map[uint16]interface{}),
@@ -99,7 +99,7 @@ func (c *client) getAvailableIdentity() uint16 {
 
 // save
 // 保存已发送的publish,已收到的pubRec，已发送的pubRel
-func (c *PacketStateCache) save(packet protocolPacket.ControlPacket) {
+func (c *PacketStateSession) save(packet protocolPacket.ControlPacket) {
 	switch packet.(type) {
 	case *protocolPacket.PublishPacket:
 		pubPacket := packet.(*protocolPacket.PublishPacket)
@@ -118,7 +118,7 @@ func (c *PacketStateCache) save(packet protocolPacket.ControlPacket) {
 // 收到Rec，删除Pub
 // 收到Rel，删除Rec
 // 收到Comp，删除Rel
-func (c *PacketStateCache) remove(packet protocolPacket.ControlPacket) {
+func (c *PacketStateSession) remove(packet protocolPacket.ControlPacket) {
 	switch packet.(type) {
 	case *protocolPacket.PubAckPacket:
 		ackPacket := packet.(*protocolPacket.PubAckPacket)
@@ -135,9 +135,9 @@ func (c *PacketStateCache) remove(packet protocolPacket.ControlPacket) {
 	}
 }
 
-// PacketStateCache 保存通讯过程中包的中间状态，以便崩溃重启后重发消息，保证消息不丢失
+// PacketStateSession 保存通讯过程中包的中间状态，以便崩溃重启后重发消息，保证消息不丢失
 // 只在客户端实现，通过客户端驱动服务端进行重发，服务端无状态
-type PacketStateCache struct {
+type PacketStateSession struct {
 	// 已经发送给服务端，但是还没有完成确认的QoS 1和QoS 2级别的消息
 	Pub map[uint16]interface{}
 	// 已从服务端接收，但是还没有发送Rel的QoS 2级别信息
