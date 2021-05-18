@@ -84,6 +84,6 @@ func defaultOpts() *Option {
 	return &Option{
 		Protocol: "tcp",
 		Address:  "127.0.0.1:9000",
-		Timeout:  50,
+		KeepAlive:  10,
 	}
 }

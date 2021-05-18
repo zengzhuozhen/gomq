@@ -14,7 +14,6 @@ import (
 type Option struct {
 	Protocol     string
 	Address      string
-	Timeout      int // timeout sec
 	Username     string
 	Password     string
 	WillTopic    string
@@ -50,7 +49,7 @@ func newClient(opt *Option) *client {
 }
 
 func (c *client) connect() error {
-	conn, err := net.DialTimeout(c.options.Protocol, c.options.Address, time.Duration(c.options.Timeout)*time.Second)
+	conn, err := net.DialTimeout(c.options.Protocol, c.options.Address, time.Duration(c.options.KeepAlive)*time.Second)
 	if err != nil {
 		log.Errorf(err.Error())
 		return err
