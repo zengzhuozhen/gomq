@@ -23,7 +23,7 @@ func (m *MemberBroker) startSendSync() error {
 	m.memberClient = client.NewMember(&client.Option{
 		Protocol: "tcp",
 		Address:  m.LeaderAddress,
-		Timeout:  3,
+		KeepAlive:  3,
 	})
 	return m.memberClient.SendSync()
 }
