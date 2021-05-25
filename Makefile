@@ -9,12 +9,11 @@ build:
 	go build -o gomq server/main.go
 	go build -o gomqctl cmd/main.go
 
+#基准测试
 benchmarkTest:
 	ab -n 1000 -c 10 -T 'application/json' -p benchmark/input-level-1.txt  http://localhost:8000/pub > benchmark/output-level-1.txt
 	ab -n 1000 -c 10 -T 'application/json' -p benchmark/input-level-2.txt  http://localhost:8000/pub > benchmark/output-level-2.txt
 	ab -n 1000 -c 10 -T 'application/json' -p benchmark/input-level-3.txt  http://localhost:8000/pub > benchmark/output-level-3.txt
-
-
 
 #运行
 run:

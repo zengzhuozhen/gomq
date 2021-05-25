@@ -51,7 +51,6 @@ func (m *Member) SendSyncOffset(duration time.Duration) {
 	for {
 		select {
 		case <-tickTimer.C:
-			fmt.Println("发送同步消息量数据包")
 			pingReqPack := protocolPacket.NewSyncOffsetPacket(m.SyncOffset, m.client.getAvailableIdentity())
 			pingReqPack.Write(m.client.conn)
 		}

@@ -12,7 +12,13 @@ type MemberBroker struct {
 }
 
 func NewMemberBroker(b *Broker) *MemberBroker {
-	return &MemberBroker{b}
+	m := &MemberBroker{b}
+	m.memberClient = client.NewMember(&client.Option{
+		Protocol: "tcp",
+		Address:  m.LeaderAddress,
+		KeepAlive:  30,
+	})
+	return m
 }
 
 func (m MemberBroker) Run() {
@@ -20,11 +26,6 @@ func (m MemberBroker) Run() {
 }
 
 func (m *MemberBroker) startSendSync() error {
-	m.memberClient = client.NewMember(&client.Option{
-		Protocol: "tcp",
-		Address:  m.LeaderAddress,
-		KeepAlive:  3,
-	})
 	return m.memberClient.SendSync()
 }
 

@@ -22,7 +22,6 @@ services:
       - "2380:2380"
       - "4001:4001"
       - "7001:7001"
-    user: root
     volumes:
       - "/Volumes/etcd/data:/opt/bitnami/etcd/data"
     environment:

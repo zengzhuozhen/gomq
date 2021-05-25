@@ -79,7 +79,7 @@ type Broker struct {
 	LeaderAddress    string
 	FollowersRemote  map[string]string // clientId : ipAddress
 	RegisterCenter   *clientv3.Client
-	memberClient *client.Member // 作为Member启动时持有的客户端
+	memberClient     *client.Member // 作为Member启动时持有的客户端
 }
 
 func NewBroker(options ...Option) IBroker {

@@ -60,7 +60,7 @@ func defaultOpts() *client.Option {
 	return &client.Option{
 		Protocol: "tcp",
 		Address:  connect,
-		Timeout:  3,
+		KeepAlive:  3,
 		Username: "zzz",
 		Password: "123456",
 	}
@@ -70,6 +70,6 @@ func defaultHttpOpts() *client.Option {
 	return &client.Option{
 		Protocol: "http",
 		Address:  connect,
-		Timeout:  3,
+		KeepAlive:  3,
 	}
 }
