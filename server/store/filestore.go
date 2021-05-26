@@ -33,7 +33,7 @@ func (fs *filestore) Open(topic string) {
 	fs.locker.Lock()
 	defer fs.locker.Unlock()
 	if fs.isOpen[topic] == false {
-		logName := fmt.Sprintf("%s%s.log", fs.dirname, topic)
+		logName := fmt.Sprintf("%sgomq.%s.log", fs.dirname, topic)
 		file, err := os.OpenFile(logName, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0666)
 		if err != nil {
 			panic(err.Error())
@@ -59,7 +59,7 @@ func (fs *filestore) Append(item common.MessageUnit) {
 }
 
 func (fs *filestore) Reset(topic string) {
-	logName := fmt.Sprintf("%s%s.log", fs.dirname, topic)
+	logName := fmt.Sprintf("%sgomq.%s.log", fs.dirname, topic)
 	err := ioutil.WriteFile(logName, []byte{}, os.ModePerm)
 	if err != nil {
 		panic(err.Error())
@@ -68,7 +68,7 @@ func (fs *filestore) Reset(topic string) {
 
 func (fs *filestore) ReadAll(topic string) []common.MessageUnit {
 	var msgList []common.MessageUnit
-	logName := fmt.Sprintf("%s%s.log", fs.dirname, topic)
+	logName := fmt.Sprintf("%sgomq.%s.log", fs.dirname, topic)
 	bytes, err := ioutil.ReadFile(logName)
 	if err != nil {
 		return msgList
@@ -94,7 +94,7 @@ func (fs *filestore) Close() {
 }
 
 func (fs *filestore) Cap(topic string) int {
-	logName := fmt.Sprintf("%s%s.log", fs.dirname, topic)
+	logName := fmt.Sprintf("%sgomq.%s.log", fs.dirname, topic)
 	buf, err := ioutil.ReadFile(logName)
 	if err != nil {
 		return 0

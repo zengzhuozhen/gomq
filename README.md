@@ -87,6 +87,51 @@ docker exec -it gomq gomqctl --topic A --connect 127.0.0.1:9000 sub
 
     略
 
+### 作为客户端使用
+
+```
+import (
+	"fmt"
+	"github.com/google/uuid"
+	"github.com/zengzhuozhen/gomq/client"
+	"github.com/zengzhuozhen/gomq/common"
+)
+
+func main() {
+	opt := &client.Option{
+		Protocol: "tcp",
+		Address:  "127.0.0.1:9000",
+		KeepAlive:  30,
+	}
+	producer := client.NewProducer(opt)
+	msg := common.MessageUnit{
+		Topic: "A",
+		QoS:   0,
+		Data:  common.Message{
+			Id:     uuid.New().String(),
+			MsgKey: "key",
+			Body:   "hello world",
+		},
+	}
+	producer.Publish(msg,0,1)
+
+	customer := client.NewConsumer(opt)
+
+	for i := range customer.Subscribe([]string{"A"},0){
+		fmt.Printf("收到主题:%s的消息:%s",i.Topic,i.Data.Body)
+	}
+}
+```
+
+#### GoMod 依赖问题
+由于依赖ETCD，仓库可能会出现一下问题：
+> go: github.com/coreos/bbolt@v1.3.4: parsing go.mod:
+module declares its path as: go.etcd.io/bbolt
+but was required as: github.com/coreos/bbolt
+
+解决方法：
+> replace github.com/coreos/bbolt v1.3.4 => go.etcd.io/bbolt v1.3.4
+
 ## 设计
 
 ### 关键概念
