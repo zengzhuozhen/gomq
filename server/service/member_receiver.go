@@ -29,6 +29,7 @@ func NewMemberReceiver(queue *common.Queue) *MemberReceiver {
 	}
 }
 
+// Broadcast 将数据包广播给所有member
 func (m *MemberReceiver) Broadcast() error {
 	for {
 		select {
@@ -47,7 +48,7 @@ func (m *MemberReceiver) Broadcast() error {
 
 func (m *MemberReceiver) send(address string, conn net.Conn, messagePacket []byte) {
 	if m.isNewOne(address) {
-		// 广播到每个member之前，先看看member是不是新来的，是的话先同步一下此前所有记录
+		// 先看看member是不是新来的，是的话先同步一下此前所有记录
 		for topic, dataAssemble := range m.Queue.Local {
 			for _, msg := range dataAssemble {
 				if topic != msg.Topic {
@@ -89,6 +90,7 @@ func (m *MemberReceiver) isNewOne(address string) bool {
 	return m.MemberSyncMap[address] == 0
 }
 
+// isLowestOne 判断当前member的offset是不是最低的一个
 func (m *MemberReceiver) isLowestOne(addr string, offset uint64) bool {
 	if len(m.MemberSyncMap) == 1 {
 		return true
