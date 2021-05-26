@@ -7,7 +7,7 @@ services:
       - "9000:9000"
       - "8000:8000"
     volumes:
-      - "/Volumes/gomq/log:/var/log/tempmq.log"
+      - "/Volumes/gomq/log/:/var/log/gomq/"
     networks:
       - mqnet
     depends_on:

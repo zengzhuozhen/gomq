@@ -5,7 +5,7 @@ import "testing"
 func TestRunMemberBroker(t *testing.T){
 	NewBroker(ServerType(Member),
 		EndPoint("127.0.0.1:9001"),
-		Dirname("/var/log/tempmq.log"),
+		Dirname("/var/log/gomq"),
 		EtcdUrl([]string{"127.0.0.1:2379"}),
 	).Run()
 }
