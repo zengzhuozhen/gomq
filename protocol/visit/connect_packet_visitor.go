@@ -157,6 +157,7 @@ func (c container) handleUserNameAndPassword(controlPacket packet.ControlPacket)
 	if !connectPayLoad.IsCorrectSecret(getSecretFunc) {
 		return NewConnectError(protocol.UserAndPassError, "客户端账号密码错误")
 	}
+	_ = etcd.Close()
 	return nil
 }
 

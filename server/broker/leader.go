@@ -36,7 +36,7 @@ func (l *LeaderBroker) startPersistent() error {
 
 func (l *LeaderBroker) startTcpServer() error {
 	log.Infof("开启tcp server...")
-	tcpServer := service.NewTCP(l.opt.endPoint, l.ProducerReceiver, l.ConsumerReceiver, l.MemberReceiver, l.RegisterCenter)
+	tcpServer := service.NewTCP(l.opt.endPoint, l.ProducerReceiver, l.ConsumerReceiver, l.MemberReceiver)
 	tcpServer.Start()
 	return nil
 }

@@ -8,9 +8,9 @@ import (
 	protocolPacket "github.com/zengzhuozhen/gomq/protocol/packet"
 	"github.com/zengzhuozhen/gomq/protocol/utils"
 	"github.com/zengzhuozhen/gomq/protocol/visit"
-	"go.etcd.io/etcd/clientv3"
 	"io"
 	"net"
+	"runtime"
 	"sync"
 	"time"
 )
@@ -21,17 +21,15 @@ type TCP struct {
 	*ProducerReceiver
 	*ConsumerReceiver
 	*MemberReceiver
-	etcdClient *clientv3.Client
 }
 
-func NewTCP(address string, PR *ProducerReceiver, CR *ConsumerReceiver, MR *MemberReceiver, client *clientv3.Client) *TCP {
+func NewTCP(address string, PR *ProducerReceiver, CR *ConsumerReceiver, MR *MemberReceiver) *TCP {
 	return &TCP{
 		protocol:         "tcp",
 		address:          address,
 		ProducerReceiver: PR,
 		ConsumerReceiver: CR,
 		MemberReceiver:   MR,
-		etcdClient:       client,
 	}
 }
 
@@ -106,7 +104,10 @@ func (tcp *TCP) startCleanMessage() {
 			queue.Mutex.Lock()
 			tcp.Pool.mu.Lock()
 			for top, pos := range topicMinOffset {
-				queue.Local[top] = queue.Local[top][pos:] // 清除Queue中不再使用的Message
+				copiedMap := queue.Local[top][pos:] // 清除Queue中不再使用的Message
+				queue.Local[top] = nil		// 先置为Nil，用GC回收空间，在重新赋值,目前并不会立即回收空间，只有在重新push后才会回收
+				runtime.GC()
+				queue.Local[top] = copiedMap
 				for _, connection := range tcp.Pool.Connections {
 					if connection.ConsumerConnAbs != nil{
 						connection.ConsumerConnAbs.TopPosMap[top] -= pos // 更新对应的Position
