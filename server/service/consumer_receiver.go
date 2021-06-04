@@ -26,7 +26,7 @@ func NewConsumerReceiver(chanAssemble map[string][]common.MsgUnitChan) *Consumer
 		ChanAssemble: chanAssemble,
 		QoSGuarantee: make(map[string]QoSForTopic),
 		Pool: &Pool{
-			Connections: make(map[string]*common.ConnectionAbstract, 1024),
+			Connections: make(map[string]*common.ConnectionAbstract),
 			State:       new(sync.Map),
 			mu:          new(sync.Mutex),
 		},
@@ -115,14 +115,14 @@ func (r *ConsumerReceiver) listenMsgChan(ctx context.Context, topicIndex int, co
 	}
 }
 
-// CloseConsumer would close all the channel within connUid ,and response a ack
-func (r *ConsumerReceiver) CloseConsumer(conn net.Conn, packet *protocolPacket.UnSubscribePacket) {
+// UnSubscribeAndResponse would close all the channel within connUid ,and response a ack
+func (r *ConsumerReceiver) UnSubscribeAndResponse(conn net.Conn, packet *protocolPacket.UnSubscribePacket) {
 	connUid := conn.RemoteAddr().String()
 	for packet.RemainingLength > 0 {
 		topic, _ := utils.DecodeString(conn)
 		// 这里根据consume 连接到server是提供的 topic 列表在pool中顺序排列的特点
 		// 找出此次需要关闭的 topic 通道对应的 key ，需严格保证 Pool 中所有数组顺序排列
-		for topicIndex, top := range r.Pool.Connections[connUid].Topic {
+		for topicIndex, top := range r.Pool.Connections[connUid].ConsumerConnAbs.Topic {
 			if top == topic {
 				fmt.Println("关闭", connUid, "的主题", topic)
 				close(r.ChanAssemble[connUid][topicIndex])
@@ -167,8 +167,13 @@ func (p *Pool) ForeachActiveConn() []string {
 
 func (p *Pool) Add(connUid string, topics []string) {
 	p.State.Store(connUid, true)
-	p.Connections[connUid].Position = make([]int64, len(topics))
-	p.Connections[connUid].Topic = topics
+	p.Connections[connUid].ConsumerConnAbs = &common.ConsumerConnAbs{
+		Topic:     topics,
+		TopPosMap:  make(map[string]int64),
+	}
+	for _,topic := range topics{
+		p.Connections[connUid].ConsumerConnAbs.TopPosMap[topic] = 0
+	}
 }
 
 func (p *Pool) UpdatePosition(uid, topic string) {

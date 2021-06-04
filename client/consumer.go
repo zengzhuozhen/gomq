@@ -92,7 +92,7 @@ func (c *Consumer) readPacket(msgUnitChan chan<- *common.MessageUnit) {
 			log.Infof("收到服务端心跳回应")
 		default:
 			// 普通消息
-			messByte := make([]byte, 4096) // todo fix:这里可能由于粘包导致超出slice长度
+			messByte := make([]byte, 4096 * 1024) // todo fix:这里可能由于粘包导致超出slice长度
 			n, _ := c.client.conn.Read(messByte)
 			head := fh.Pack()
 			data := append(head.Bytes(), messByte[:n]...)

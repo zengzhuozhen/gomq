@@ -35,8 +35,10 @@ func NewTCP(address string, PR *ProducerReceiver, CR *ConsumerReceiver, MR *Memb
 	}
 }
 
+// Start 开启TCP服务
 func (tcp *TCP) Start() {
 	go tcp.startConnLoop()
+	go tcp.startCleanMessage()
 	listen, err := net.Listen(tcp.protocol, tcp.address)
 	if err != nil {
 		log.Errorf(err.Error())
@@ -55,6 +57,7 @@ func (tcp *TCP) Start() {
 	}
 }
 
+// startConnLoop 开始监听连接客户端，每次循环都会尝试推送消息给活跃的客户端
 func (tcp *TCP) startConnLoop() {
 	log.Infof("开启监听连接循环")
 	for {
@@ -64,7 +67,7 @@ func (tcp *TCP) startConnLoop() {
 			continue
 		}
 		for _, uid := range activeConn {
-			topicList := tcp.ConsumerReceiver.Pool.Connections[uid].Topic
+			topicList := tcp.ConsumerReceiver.Pool.Connections[uid].ConsumerConnAbs.Topic
 			var wg sync.WaitGroup
 			for topicIndex, topic := range topicList {
 				wg.Add(1)
@@ -75,6 +78,44 @@ func (tcp *TCP) startConnLoop() {
 				}(topicIndex, topic)
 			}
 			wg.Wait()
+		}
+	}
+}
+
+// startCleanMessage 开启清理无用消息的goroutine
+func (tcp *TCP) startCleanMessage() {
+	log.Infof("开启周期消息清理机制")
+	ticker := time.NewTicker(30 * time.Second)
+	for {
+		select {
+		case <-ticker.C:
+			log.Infof("开始清理无用Message")
+			topicMinOffset := make(map[string]int64)
+			// 遍历每个topic的position，找出全局最小的pos
+			for _, connection := range tcp.Pool.Connections {
+				if connection.ConsumerConnAbs != nil {
+					for top, pos := range connection.ConsumerConnAbs.TopPosMap {
+						if topicMinOffset[top] == 0 || topicMinOffset[top] > pos {
+							topicMinOffset[top] = pos
+						}
+					}
+				}
+			}
+			log.Infof("目前消息内存占用情况", tcp.ProducerReceiver.Queue.GetLen("A"))
+			queue := tcp.ProducerReceiver.Queue
+			queue.Mutex.Lock()
+			tcp.Pool.mu.Lock()
+			for top, pos := range topicMinOffset {
+				queue.Local[top] = queue.Local[top][pos:] // 清除Queue中不再使用的Message
+				for _, connection := range tcp.Pool.Connections {
+					if connection.ConsumerConnAbs != nil{
+						connection.ConsumerConnAbs.TopPosMap[top] -= pos // 更新对应的Position
+					}
+				}
+			}
+			tcp.Pool.mu.Unlock()
+			queue.Mutex.Unlock()
+			log.Infof("清理后消息内存占用情况", tcp.ProducerReceiver.Queue.GetLen("A"))
 		}
 	}
 }
@@ -96,7 +137,7 @@ func (tcp *TCP) popRetainQueue(uid, topic string, topicIndex int) {
 }
 
 func (tcp *TCP) popQueue(uid, topic string, topicIndex int) {
-	position := tcp.ConsumerReceiver.Pool.Connections[uid].Position[topicIndex]
+	position := tcp.ConsumerReceiver.Pool.Connections[uid].ConsumerConnAbs.TopPosMap[topic]
 	// 正常处理
 	if msg, err := tcp.ProducerReceiver.Queue.Pop(topic, position); err == nil {
 		tcp.ConsumerReceiver.Pool.UpdatePosition(uid, topic)
@@ -128,7 +169,7 @@ func (tcp *TCP) holdConn(conn net.Conn) {
 		case *protocolPacket.SubscribePacket:
 			tcp.ConsumerReceiver.ConsumeAndResponse(ctx, conn, packet.(*protocolPacket.SubscribePacket))
 		case *protocolPacket.UnSubscribePacket:
-			tcp.ConsumerReceiver.CloseConsumer(conn, packet.(*protocolPacket.UnSubscribePacket))
+			tcp.ConsumerReceiver.UnSubscribeAndResponse(conn, packet.(*protocolPacket.UnSubscribePacket))
 		case *protocolPacket.PingReqPacket:
 			tcp.ConsumerReceiver.Pong(conn)
 		case *protocolPacket.SyncReqPacket:
@@ -137,6 +178,7 @@ func (tcp *TCP) holdConn(conn net.Conn) {
 			tcp.MemberReceiver.UpdateSyncOffset(conn, packet.(*protocolPacket.SyncOffsetPacket))
 		case *protocolPacket.DisConnectPacket:
 			_ = conn.Close()
+			delete(tcp.Pool.Connections,conn.RemoteAddr().String())
 			cancel()
 			return
 		}
@@ -157,11 +199,11 @@ func (tcp *TCP) handleConnectProtocol(conn net.Conn) bool {
 		return false
 	}
 	tcp.ConsumerReceiver.Pool.Connections[conn.RemoteAddr().String()] = &common.ConnectionAbstract{}
-	if err = visit.NewConnectPacketVisitor(&visit.PacketVisitor{Packet: &connPacket},tcp.ConsumerReceiver.Pool.Connections[conn.RemoteAddr().String()]).
+	if err = visit.NewConnectPacketVisitor(&visit.PacketVisitor{Packet: &connPacket}, tcp.ConsumerReceiver.Pool.Connections[conn.RemoteAddr().String()]).
 		Visit(func(packet protocolPacket.ControlPacket) error { // 正常连接，返回连接成功ack
-		responseConnectAck(conn, protocol.ConnectAccess)
-		return nil
-	}); err != nil {
+			responseConnectAck(conn, protocol.ConnectAccess)
+			return nil
+		}); err != nil {
 		connectError, ok := err.(visit.ConnectError)
 		if ok { // 发送连接失败错误码
 			responseConnectAck(conn, byte(connectError.Code))

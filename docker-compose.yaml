@@ -6,6 +6,7 @@ services:
     ports:
       - "9000:9000"
       - "8000:8000"
+      - "6060:6060"
     volumes:
       - "/Volumes/gomq/:/var/log/"
     networks:
