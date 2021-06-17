@@ -16,6 +16,8 @@ type Store interface {
 	Close()
 	// Cap 容量
 	Cap(topic string) int
+	// GetAllTopics 获取所有主题
+	GetAllTopics()[]string
 }
 
 

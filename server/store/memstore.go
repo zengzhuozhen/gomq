@@ -56,3 +56,11 @@ func (m *memStore) Close() {
 func (m *memStore) Cap(topic string) int {
 	return len(m.data[topic])
 }
+
+
+func (m *memStore)GetAllTopics () (topics []string){
+	for topic , _ := range m.data{
+		topics = append(topics, topic)
+	}
+	return
+}

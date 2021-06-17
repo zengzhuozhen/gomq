@@ -24,7 +24,7 @@ func (m *Message) GetId() string {
 	return m.Id
 }
 
-// 消息单元
+// MessageUnit 消息单元
 type MessageUnit struct {
 	Topic string
 	QoS   byte
@@ -48,3 +48,18 @@ func NewMessageUnit(topic string, QoS byte, data Message) MessageUnit {
 		Data:  data,
 	}
 }
+
+
+type MessageUnitWithSort struct {
+	MessageUnit
+	Sort int32
+}
+
+type MessageUnitListForSort []MessageUnitWithSort
+
+func (m MessageUnitListForSort)Len() int { return len(m)}
+
+func (m MessageUnitListForSort)Swap(i,j int) {m[i],m[j] = m[j],m[i]}
+
+func (m MessageUnitListForSort)Less(i,j int) bool { return m[i].Sort < m[j].Sort}
+

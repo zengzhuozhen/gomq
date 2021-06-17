@@ -11,7 +11,7 @@ import (
 	"sync"
 )
 
-type filestore struct {
+type FileStore struct {
 	locker  *sync.RWMutex
 	dirname string
 	isOpen  map[string]bool
@@ -20,7 +20,7 @@ type filestore struct {
 }
 
 func NewFileStore(dirname string) Store {
-	return &filestore{
+	return &FileStore{
 		locker:  new(sync.RWMutex),
 		dirname: dirname,
 		isOpen:  make(map[string]bool),
@@ -29,7 +29,7 @@ func NewFileStore(dirname string) Store {
 	}
 }
 
-func (fs *filestore) Open(topic string) {
+func (fs *FileStore) Open(topic string) {
 	fs.locker.Lock()
 	defer fs.locker.Unlock()
 	if fs.isOpen[topic] == false {
@@ -43,7 +43,7 @@ func (fs *filestore) Open(topic string) {
 	}
 }
 
-func (fs *filestore) Append(item common.MessageUnit) {
+func (fs *FileStore) Append(item common.MessageUnit) {
 	data := item.Pack()
 	data = append(data, []byte("\n")...)
 	write := bufio.NewWriter(fs.files[item.Topic])
@@ -58,7 +58,7 @@ func (fs *filestore) Append(item common.MessageUnit) {
 	}
 }
 
-func (fs *filestore) Reset(topic string) {
+func (fs *FileStore) Reset(topic string) {
 	logName := fmt.Sprintf("%sgomq.%s.log", fs.dirname, topic)
 	err := ioutil.WriteFile(logName, []byte{}, os.ModePerm)
 	if err != nil {
@@ -66,7 +66,7 @@ func (fs *filestore) Reset(topic string) {
 	}
 }
 
-func (fs *filestore) ReadAll(topic string) []common.MessageUnit {
+func (fs *FileStore) ReadAll(topic string) []common.MessageUnit {
 	var msgList []common.MessageUnit
 	logName := fmt.Sprintf("%sgomq.%s.log", fs.dirname, topic)
 	bytes, err := ioutil.ReadFile(logName)
@@ -81,7 +81,7 @@ func (fs *filestore) ReadAll(topic string) []common.MessageUnit {
 	return msgList
 }
 
-func (fs *filestore) Close() {
+func (fs *FileStore) Close() {
 	fs.locker.RLock()
 	defer fs.locker.RUnlock()
 	for topic, file := range fs.files {
@@ -93,11 +93,19 @@ func (fs *filestore) Close() {
 	return
 }
 
-func (fs *filestore) Cap(topic string) int {
+func (fs *FileStore) Cap(topic string) int {
 	logName := fmt.Sprintf("%sgomq.%s.log", fs.dirname, topic)
 	buf, err := ioutil.ReadFile(logName)
 	if err != nil {
 		return 0
 	}
 	return bytes.Count(buf, []byte{'\n'})
+}
+
+
+func (fs *FileStore)GetAllTopics () (topics []string){
+	for topic , _ := range fs.files{
+		topics = append(topics, topic)
+	}
+	return
 }
