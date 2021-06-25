@@ -98,7 +98,6 @@ func (tcp *TCP) startCleanMessage() {
 					}
 				}
 			}
-			log.Infof("目前消息内存占用情况", tcp.ProducerReceiver.Queue.GetLen("A"))
 			queue := tcp.ProducerReceiver.Queue
 			queue.Mutex.Lock()
 			tcp.Pool.mu.Lock()
@@ -112,7 +111,6 @@ func (tcp *TCP) startCleanMessage() {
 			}
 			tcp.Pool.mu.Unlock()
 			queue.Mutex.Unlock()
-			log.Infof("清理后消息内存占用情况", tcp.ProducerReceiver.Queue.GetLen("A"))
 		}
 	}
 }
