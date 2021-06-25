@@ -10,3 +10,12 @@ func IsRunningInDocker() bool {
 	return true
 }
 
+
+func FindInt64(target int64, container []int64) bool {
+	for _, i := range container{
+		if i == target{
+			return true
+		}
+	}
+	return false
+}

@@ -52,7 +52,7 @@ func NewMessageUnit(topic string, QoS byte, data Message) MessageUnit {
 
 type MessageUnitWithSort struct {
 	MessageUnit
-	Sort int32
+	Sort int64
 }
 
 type MessageUnitListForSort []MessageUnitWithSort

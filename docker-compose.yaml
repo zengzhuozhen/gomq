@@ -8,7 +8,7 @@ services:
       - "8000:8000"
       - "6060:6060"
     volumes:
-      - "/Volumes/gomq/:/var/log/"
+      - "/Volumes/gomq/:/var/log/gomq/"
     networks:
       - mqnet
     depends_on:

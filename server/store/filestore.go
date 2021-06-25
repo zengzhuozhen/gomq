@@ -96,6 +96,7 @@ func (fs *FileStore) Close() {
 func (fs *FileStore) Cap(topic string) int {
 	logName := fmt.Sprintf("%sgomq.%s.log", fs.dirname, topic)
 	buf, err := ioutil.ReadFile(logName)
+	fmt.Println(bytes.Count(buf, []byte{'\n'}))
 	if err != nil {
 		return 0
 	}
@@ -108,4 +109,13 @@ func (fs *FileStore)GetAllTopics () (topics []string){
 		topics = append(topics, topic)
 	}
 	return
+}
+
+func (fs *FileStore) GetFd(topic string) *os.File {
+	logName := fmt.Sprintf("%sgomq.%s.log", fs.dirname, topic)
+	fd , err := os.OpenFile(logName, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0666)
+	if err != nil{
+		panic(err)
+	}
+	return fd
 }
