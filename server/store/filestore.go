@@ -5,8 +5,11 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/zengzhuozhen/gomq/common"
+	"github.com/zengzhuozhen/gomq/log"
 	"io/ioutil"
 	"os"
+	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 )
@@ -14,7 +17,6 @@ import (
 type FileStore struct {
 	locker  *sync.RWMutex
 	dirname string
-	isOpen  map[string]bool
 	files   map[string]*os.File
 	caps    map[string]int
 }
@@ -23,7 +25,6 @@ func NewFileStore(dirname string) Store {
 	return &FileStore{
 		locker:  new(sync.RWMutex),
 		dirname: dirname,
-		isOpen:  make(map[string]bool),
 		files:   make(map[string]*os.File),
 		caps:    make(map[string]int),
 	}
@@ -32,15 +33,13 @@ func NewFileStore(dirname string) Store {
 func (fs *FileStore) Open(topic string) {
 	fs.locker.Lock()
 	defer fs.locker.Unlock()
-	if fs.isOpen[topic] == false {
-		logName := fmt.Sprintf("%sgomq.%s.log", fs.dirname, topic)
-		file, err := os.OpenFile(logName, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0666)
-		if err != nil {
-			panic(err.Error())
-		}
-		fs.files[topic] = file
-		fs.isOpen[topic] = true
+	logName := fmt.Sprintf("%sgomq.%s.log", fs.dirname, topic)
+	file, err := os.OpenFile(logName, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0666)
+	if err != nil {
+		panic(err.Error())
 	}
+	fs.files[topic] = file
+
 }
 
 func (fs *FileStore) Append(item common.MessageUnit) {
@@ -84,11 +83,8 @@ func (fs *FileStore) ReadAll(topic string) []common.MessageUnit {
 func (fs *FileStore) Close() {
 	fs.locker.RLock()
 	defer fs.locker.RUnlock()
-	for topic, file := range fs.files {
-		if fs.isOpen[topic] == true {
-			file.Close()
-			fs.isOpen[topic] = false
-		}
+	for _, file := range fs.files {
+		file.Close()
 	}
 	return
 }
@@ -103,19 +99,56 @@ func (fs *FileStore) Cap(topic string) int {
 	return bytes.Count(buf, []byte{'\n'})
 }
 
-
-func (fs *FileStore)GetAllTopics () (topics []string){
-	for topic , _ := range fs.files{
+func (fs *FileStore) GetAllTopics() (topics []string) {
+	for topic, _ := range fs.files {
 		topics = append(topics, topic)
 	}
 	return
 }
 
-func (fs *FileStore) GetFd(topic string) *os.File {
-	logName := fmt.Sprintf("%sgomq.%s.log", fs.dirname, topic)
-	fd , err := os.OpenFile(logName, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0666)
-	if err != nil{
-		panic(err)
+// GetCompactFd 获取需要进行压缩的文件描述符
+func (fs *FileStore) GetCompactFd(topic string) []*os.File {
+	files, _ := ioutil.ReadDir(fs.dirname)
+	var fds []*os.File
+	for _, file := range files {
+		if file.Name() != fs.CurrentLogName(topic) {
+			fd, err := os.OpenFile(file.Name(), os.O_RDWR|os.O_APPEND|os.O_CREATE, 0666)
+			if err != nil {
+				log.Fatalf("获取待压缩日志失败", err)
+			}
+			fds = append(fds, fd)
+		}
 	}
-	return fd
+	return fds
+}
+
+// GetTargetFilename 获取主题下的将要重命名的文件名
+func (fs *FileStore) GetTargetFilename(topic string) string {
+	files, _ := ioutil.ReadDir(fs.dirname)
+	var filename,targetName string
+	for _, file := range files {
+		match, _ := regexp.MatchString(fmt.Sprintf("gomq.%s.log[.]?[0-9]*", topic), file.Name())
+		if match {
+			filename = file.Name()
+		}
+	}
+	split := strings.Split(filename, ".")
+	if len(split) == 3 {
+		targetName =  filename + ".1"
+	} else {
+		lastNo, _ := strconv.Atoi(split[3])
+		targetName =  fmt.Sprintf("%s.%d", filename, lastNo+1)
+	}
+	return fs.dirname + targetName
+}
+
+// IsNeedSplit 是否需要分片，大于2M则需要
+func (fs *FileStore) IsNeedSplit(topic string) bool {
+	fd, _ := os.OpenFile(fs.CurrentLogName(topic), os.O_RDWR|os.O_APPEND|os.O_CREATE, 0666)
+	fi, _ := fd.Stat()
+	return fi.Size() > 1024*1024*2
+}
+
+func (fs *FileStore) CurrentLogName(topic string) string {
+	return fmt.Sprintf("%sgomq.%s.log", fs.dirname, topic)
 }

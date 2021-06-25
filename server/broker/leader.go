@@ -23,7 +23,16 @@ func NewLeaderBroker(b *Broker) *LeaderBroker {
 }
 
 func (l *LeaderBroker) Run() {
-	l.run(l.startTcpServer, l.startHttpServer, l.startPersistent, l.startPprof, l.handleSignal, l.startBroadcast, l.startLogCompact)
+	l.run(
+		l.startTcpServer,
+		l.startHttpServer,
+		l.startPersistent,
+		l.startPprof,
+		l.handleSignal,
+		l.startBroadcast,
+		l.startLogCompact,
+		l.startLogSplit,
+	)
 }
 
 func (l *LeaderBroker) startPersistent() error {
@@ -68,39 +77,35 @@ func (l *LeaderBroker) startBroadcast() error {
 }
 
 func (l *LeaderBroker) startLogCompact() error {
-	log.Infof("开启日志压缩")
-	ticker := time.NewTicker(60 * time.Second)
-	for {
-		select {
-		case <-ticker.C:
-			switch l.persistent.(type) {
-			case *store.FileStore:
-				fileStore := l.persistent.(*store.FileStore)
-				topics := fileStore.GetAllTopics()
-				log.Debugf("压缩日志的topic:", topics)
-				for _, topic := range topics { // 相当于重新覆盖，考虑更好的实现
-					i := 0
-					var dirtyRow []int64
-					msgMap := make(map[string]common.MessageUnitWithSort)
-					messages := l.persistent.ReadAll(topic)
-					for _, message := range messages {
-						if msg, exist := msgMap[message.Data.MsgKey]; exist { // 从前往后扫描，出现重复的key，说明前面的key需要被清除
-							dirtyRow = append(dirtyRow, msg.Sort)
-						}
-						msgMap[message.Data.MsgKey] = common.MessageUnitWithSort{
-							Sort:        int64(i),
-							MessageUnit: message,
-						}
-						i++
+	l.TickerController(60*time.Second, func() {
+		log.Infof("开启日志压缩")
+		switch l.persistent.(type) {
+		case *store.FileStore:
+			fileStore := l.persistent.(*store.FileStore)
+			topics := fileStore.GetAllTopics()
+			log.Debugf("压缩日志的topic:", topics)
+			for _, topic := range topics { // 相当于重新覆盖，考虑更好的实现
+				i := 0
+				var dirtyRow []int64
+				msgMap := make(map[string]common.MessageUnitWithSort)
+				messages := l.persistent.ReadAll(topic)
+				for _, message := range messages {
+					if msg, exist := msgMap[message.Data.MsgKey]; exist { // 从前往后扫描，出现重复的key，说明前面的key需要被清除
+						dirtyRow = append(dirtyRow, msg.Sort)
 					}
-					fd := fileStore.GetFd(topic)
+					msgMap[message.Data.MsgKey] = common.MessageUnitWithSort{
+						Sort:        int64(i),
+						MessageUnit: message,
+					}
+					i++
+				}
+				for _, fd := range fileStore.GetCompactFd(topic) {
 					l.compact(fd, dirtyRow)
 				}
 			}
-			return nil
 		}
-	}
-
+	})
+	return nil
 }
 
 // 日志压缩:逐行读取，写入buffer,最后重新覆盖源文件
@@ -123,4 +128,41 @@ func (l *LeaderBroker) compact(fd *os.File, dirtyRows []int64) {
 	fd.Write(res)
 	fd.Sync()
 	fd.Close()
+}
+
+// startLogSplit 日志分片
+// 参考linux logrotate create
+// 1.重命名源文件
+// 2.创建新的文件
+// 3.重新打开文件
+func (l *LeaderBroker) startLogSplit() error {
+	l.TickerController(60*time.Second, func() {
+		log.Infof("开启日志分片")
+		switch l.persistent.(type) {
+		case *store.FileStore:
+			fileStore := l.persistent.(*store.FileStore)
+			topics := fileStore.GetAllTopics()
+			for _, topic := range topics {
+				if fileStore.IsNeedSplit(topic) {
+					targetFilename := fileStore.GetTargetFilename(topic)
+					sourceFilename := fileStore.CurrentLogName(topic)
+					log.Debugf("源文件:", sourceFilename, "目标文件:", targetFilename)
+					_ = os.Rename(sourceFilename, targetFilename)
+					_, _ = os.Create(sourceFilename)
+					fileStore.Open(topic)
+				}
+			}
+		}
+	})
+	return nil
+}
+
+func (l *LeaderBroker) TickerController(interval time.Duration, handler func()) {
+	ticker := time.NewTicker(interval)
+	for {
+		select {
+		case <-ticker.C:
+			handler()
+		}
+	}
 }
