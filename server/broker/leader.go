@@ -1,17 +1,13 @@
 package broker
 
 import (
-	"bufio"
 	"fmt"
 	"github.com/zengzhuozhen/gomq/common"
 	"github.com/zengzhuozhen/gomq/log"
 	"github.com/zengzhuozhen/gomq/server/service"
 	"github.com/zengzhuozhen/gomq/server/store"
-	"io"
 	"net/http"
 	_ "net/http/pprof"
-	"os"
-	"time"
 )
 
 type LeaderBroker struct {
@@ -30,8 +26,7 @@ func (l *LeaderBroker) Run() {
 		l.startPprof,
 		l.handleSignal,
 		l.startBroadcast,
-		l.startLogCompact,
-		l.startLogSplit,
+		l.startLogManager,
 	)
 }
 
@@ -76,93 +71,12 @@ func (l *LeaderBroker) startBroadcast() error {
 	return l.MemberReceiver.Broadcast()
 }
 
-func (l *LeaderBroker) startLogCompact() error {
-	l.TickerController(60*time.Second, func() {
-		log.Infof("开启日志压缩")
-		switch l.persistent.(type) {
-		case *store.FileStore:
-			fileStore := l.persistent.(*store.FileStore)
-			topics := fileStore.GetAllTopics()
-			log.Debugf("压缩日志的topic:", topics)
-			for _, topic := range topics { // 相当于重新覆盖，考虑更好的实现
-				i := 0
-				var dirtyRow []int64
-				msgMap := make(map[string]common.MessageUnitWithSort)
-				messages := l.persistent.ReadAll(topic)
-				for _, message := range messages {
-					if msg, exist := msgMap[message.Data.MsgKey]; exist { // 从前往后扫描，出现重复的key，说明前面的key需要被清除
-						dirtyRow = append(dirtyRow, msg.Sort)
-					}
-					msgMap[message.Data.MsgKey] = common.MessageUnitWithSort{
-						Sort:        int64(i),
-						MessageUnit: message,
-					}
-					i++
-				}
-				for _, fd := range fileStore.GetCompactFd(topic) {
-					l.compact(fd, dirtyRow)
-				}
-			}
-		}
-	})
-	return nil
-}
-
-// 日志压缩:逐行读取，写入buffer,最后重新覆盖源文件
-func (l *LeaderBroker) compact(fd *os.File, dirtyRows []int64) {
-	log.Debugf("开始清除日志行", dirtyRows)
-	reader := bufio.NewReader(fd)
-	res := make([]byte, 0)
-	var i int64
-	for {
-		str, err := reader.ReadString('\n')
-		if err == io.EOF {
-			break
-		}
-		if !common.FindInt64(i, dirtyRows) {
-			res = append(res, []byte(str)...)
-		}
-		i++
+func (l *LeaderBroker) startLogManager() error {
+	switch l.persistent.(type) {
+	case *store.FileStore:
+		log.Infof("开启日志管理")
+		logManager := service.NewLogManager(l.persistent.(*store.FileStore))
+		return logManager.Start()
 	}
-	fd.Truncate(0)
-	fd.Write(res)
-	fd.Sync()
-	fd.Close()
-}
-
-// startLogSplit 日志分片
-// 参考linux logrotate create
-// 1.重命名源文件
-// 2.创建新的文件
-// 3.重新打开文件
-func (l *LeaderBroker) startLogSplit() error {
-	l.TickerController(60*time.Second, func() {
-		log.Infof("开启日志分片")
-		switch l.persistent.(type) {
-		case *store.FileStore:
-			fileStore := l.persistent.(*store.FileStore)
-			topics := fileStore.GetAllTopics()
-			for _, topic := range topics {
-				if fileStore.IsNeedSplit(topic) {
-					targetFilename := fileStore.GetTargetFilename(topic)
-					sourceFilename := fileStore.CurrentLogName(topic)
-					log.Debugf("源文件:", sourceFilename, "目标文件:", targetFilename)
-					_ = os.Rename(sourceFilename, targetFilename)
-					_, _ = os.Create(sourceFilename)
-					fileStore.Open(topic)
-				}
-			}
-		}
-	})
 	return nil
-}
-
-func (l *LeaderBroker) TickerController(interval time.Duration, handler func()) {
-	ticker := time.NewTicker(interval)
-	for {
-		select {
-		case <-ticker.C:
-			handler()
-		}
-	}
 }
