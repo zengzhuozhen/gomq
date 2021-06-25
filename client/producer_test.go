@@ -54,6 +54,7 @@ func TestProducer_Publish_Topic_A(t *testing.T) {
 		},
 	}
 	producer.Publish(mess, protocol.AtLeastOnce, protocol.NeedRetain)
+	producer.Close()
 }
 
 func TestProducer_Publish_Topic_B(t *testing.T) {
@@ -68,6 +69,8 @@ func TestProducer_Publish_Topic_B(t *testing.T) {
 		},
 	}
 	producer.Publish(mess, protocol.AtLeastOnce, protocol.NeedRetain)
+	producer.Close()
+
 }
 
 func TestProducer_Publish_Topic_C(t *testing.T) {
@@ -82,4 +85,5 @@ func TestProducer_Publish_Topic_C(t *testing.T) {
 		},
 	}
 	producer.Publish(mess, protocol.ExactOnce, protocol.NotNeedRetain)
+	producer.Close()
 }
