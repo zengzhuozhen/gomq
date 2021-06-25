@@ -20,15 +20,15 @@ func NewLogManager(fileStore *store.FileStore) *LogManager {
 	return &LogManager{fileStore: fileStore}
 }
 
-func (l *LogManager) Start()  error{
+func (l *LogManager) Start() error {
 	l.wg = errgroup.Group{}
 	l.wg.Go(l.startLogCompact)
 	l.wg.Go(l.startLogSplit)
-	return  l.wg.Wait()
+	return l.wg.Wait()
 }
 
 func (l *LogManager) startLogCompact() error {
-	l.TickerController(60*time.Second, func() {
+	l.inTicker(60*time.Second, func() {
 		log.Infof("开启日志压缩")
 
 		topics := l.fileStore.GetAllTopics()
@@ -84,7 +84,7 @@ func (l *LogManager) compact(fd *os.File, dirtyRows []int64) {
 // 2.创建新的文件
 // 3.重新打开文件
 func (l *LogManager) startLogSplit() error {
-	l.TickerController(60*time.Second, func() {
+	l.inTicker(60*time.Second, func() {
 		log.Infof("开启日志分片")
 		topics := l.fileStore.GetAllTopics()
 		for _, topic := range topics {
@@ -101,7 +101,8 @@ func (l *LogManager) startLogSplit() error {
 	return nil
 }
 
-func (l *LogManager) TickerController(interval time.Duration, handler func()) {
+// inTicker let the handler run in  a  new ticker  by given interval
+func (l *LogManager) inTicker(interval time.Duration, handler func()) {
 	ticker := time.NewTicker(interval)
 	for {
 		select {
