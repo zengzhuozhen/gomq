@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/zengzhuozhen/gomq/client"
 	"github.com/zengzhuozhen/gomq/common"
-	"github.com/zengzhuozhen/gomq/server/store"
 )
 
 type MemberBroker struct {
@@ -31,13 +30,11 @@ func (m *MemberBroker) startSendSync() error {
 
 func (m *MemberBroker) startPersistent() error {
 	fmt.Println("开启持久化协程")
-	m.persistent = store.NewMemStore()
-	m.persistent.Open("")
-	m.persistent.ReadAll("")
 	for {
 		var data common.MessageUnit
 		data = <-m.memberClient.PersistentChan
 		fmt.Println("同步Leader消息")
+		m.persistent.Open(data.Topic)
 		m.persistent.Append(data)
 	}
 }

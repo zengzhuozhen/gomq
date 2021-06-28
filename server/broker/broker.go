@@ -80,12 +80,15 @@ type Broker struct {
 	FollowersRemote  map[string]string // clientId : ipAddress
 	RegisterCenter   *clientv3.Client
 	memberClient     *client.Member // 作为Member启动时持有的客户端
+	ctx              context.Context
+	cancelFunc       context.CancelFunc
 }
 
 func NewBroker(options ...Option) IBroker {
 	broker := new(Broker)
 	broker.opt = new(option)
 	broker.brokerId = uuid.New().String()
+	broker.ctx, broker.cancelFunc = context.WithCancel(context.Background())
 	for _, option := range options {
 		option(broker)
 	}
@@ -101,6 +104,7 @@ func NewBroker(options ...Option) IBroker {
 	if broker.opt.identity == Leader {
 		return NewLeaderBroker(broker)
 	} else {
+		broker.watchLeader()
 		return NewMemberBroker(broker)
 	}
 }
@@ -112,28 +116,48 @@ func (b *Broker) register() {
 	}
 	b.RegisterCenter, _ = clientv3.New(config)
 	kv := clientv3.NewKV(b.RegisterCenter)
-	ctx := context.Background()
-	kv.Txn(ctx).
-		If(clientv3.Compare(clientv3.CreateRevision(LeaderPath), "=", 0)).
+	kv.Txn(b.ctx).
+		If(clientv3.Compare(clientv3.Value(LeaderPath), "=", "")).
 		Then(clientv3.OpPut(LeaderPath, b.opt.endPoint)).
 		Else(clientv3.OpPut(fmt.Sprintf("%s%s", FollowerPath, b.brokerId), b.opt.endPoint)).
 		Commit()
+	b.updateIdentity(kv)
+}
+
+// 监听leader标志，当主节点宕机时，自动替换
+// todo 目前Leader和Member运行时的逻辑不一致，替换为主节点后需要解决
+func (b *Broker) watchLeader()  {
+	watchChan := b.RegisterCenter.Watch(b.ctx, LeaderPath)
+	<-watchChan
+	kv := clientv3.NewKV(b.RegisterCenter)
+	kv.Txn(b.ctx).
+		If(clientv3.Compare(clientv3.Value(LeaderPath), "=", "")).
+		Then(
+			clientv3.OpPut(LeaderPath, b.opt.endPoint),
+			clientv3.OpPut(LeaderId,b.brokerId),
+			clientv3.OpDelete(fmt.Sprintf("%s%s", FollowerPath, b.brokerId)),
+			).
+		Commit()
+	b.updateIdentity(kv)
+}
+
+// updateIdentity 更新当前broker的身份
+func (b *Broker) updateIdentity(kv clientv3.KV) {
 	// 获取leader地址
-	resp, _ := kv.Get(ctx, LeaderPath)
+	resp, _ := kv.Get(b.ctx, LeaderPath)
 	leaderRemote := string(resp.Kvs[0].Value)
 	b.LeaderAddress = leaderRemote
 
 	if leaderRemote == b.opt.endPoint {
 		b.opt.identity = Leader
-		_, _ = kv.Put(ctx, LeaderId, b.brokerId)
+		_, _ = kv.Put(b.ctx, LeaderId, b.brokerId)
 	} else {
-		// 需要判断是否为活跃节点，否则将替换为当前节点为leader,并修改etcd中的leader path
 		b.opt.identity = Member
 	}
 	// 获取leader ID
-	resp, _ = kv.Get(ctx, LeaderId)
+	resp, _ = kv.Get(b.ctx, LeaderId)
 	b.LeaderId = string(resp.Kvs[0].Value)
-	resp, _ = kv.Get(ctx, FollowerPath, clientv3.WithPrefix())
+	resp, _ = kv.Get(b.ctx, FollowerPath, clientv3.WithPrefix())
 	for _, i := range resp.Kvs {
 		clientId := strings.SplitAfter(string(i.Key), FollowerPath)[1]
 		b.FollowersRemote[clientId] = string(i.Value)
@@ -151,7 +175,6 @@ func (b *Broker) handleSignal() error {
 		os.Exit(0)
 	}
 	return err
-
 }
 
 func (b *Broker) gracefulStop() error {
@@ -163,6 +186,7 @@ func (b *Broker) gracefulStop() error {
 		_, err = kv.Delete(context.TODO(), fmt.Sprintf("%s/%s", FollowerPath, b.brokerId))
 	}
 	b.persistent.Close()
+	b.cancelFunc()
 	return err
 }
 
