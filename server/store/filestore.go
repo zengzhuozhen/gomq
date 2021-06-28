@@ -65,17 +65,23 @@ func (fs *FileStore) Reset(topic string) {
 	}
 }
 
+// ReadAll 读取主题下所有消息，日志分片，需要读取多个文件
 func (fs *FileStore) ReadAll(topic string) []common.MessageUnit {
 	var msgList []common.MessageUnit
-	logName := fmt.Sprintf("%sgomq.%s.log", fs.dirname, topic)
-	bytes, err := ioutil.ReadFile(logName)
-	if err != nil {
-		return msgList
-	}
-	byteList := strings.Split(string(bytes), "\n")
-	for _, byteItem := range byteList[:len(byteList)-1] {
-		msg := new(common.MessageUnit)
-		msgList = append(msgList, *msg.UnPack([]byte(byteItem)))
+	files, _ := ioutil.ReadDir(fs.dirname)
+	for _, file := range files{
+		match, _ := regexp.MatchString(fmt.Sprintf("gomq.%s.log[.]?[0-9]*", topic), file.Name())
+		if match {
+			bytes, err := ioutil.ReadFile(fs.dirname + file.Name())
+			if err != nil {
+				return msgList
+			}
+			byteList := strings.Split(string(bytes), "\n")
+			for _, byteItem := range byteList[:len(byteList)-1] {
+				msg := new(common.MessageUnit)
+				msgList = append(msgList, *msg.UnPack([]byte(byteItem)))
+			}
+		}
 	}
 	return msgList
 }
