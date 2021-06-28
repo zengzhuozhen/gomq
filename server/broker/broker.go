@@ -68,7 +68,6 @@ type IBroker interface {
 
 type Broker struct {
 	brokerId         string
-	serverType       serverType
 	opt              *option
 	wg               errgroup.Group
 	ProducerReceiver *service.ProducerReceiver
