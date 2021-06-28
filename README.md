@@ -160,6 +160,6 @@ but was required as: github.com/coreos/bbolt
 - [ ] Broker断线后保存未处理信息(Qos>0)
 - [ ] 主从切换高可用
 - [x] 日志压缩算法
-- [ ] 日志分片
+- [x] 日志分片
 - [ ] 持久化消息存储规划
 - [ ] 客户端消费偏移持久化
