@@ -104,7 +104,7 @@ func NewBroker(options ...Option) IBroker {
 	if broker.opt.identity == Leader {
 		return NewLeaderBroker(broker)
 	} else {
-		broker.watchLeader()
+		go broker.watchLeader()
 		return NewMemberBroker(broker)
 	}
 }
@@ -125,20 +125,26 @@ func (b *Broker) register() {
 }
 
 // 监听leader标志，当主节点宕机时，自动替换
-// todo 目前Leader和Member运行时的逻辑不一致，替换为主节点后需要解决
-func (b *Broker) watchLeader()  {
-	watchChan := b.RegisterCenter.Watch(b.ctx, LeaderPath)
-	<-watchChan
-	kv := clientv3.NewKV(b.RegisterCenter)
-	kv.Txn(b.ctx).
-		If(clientv3.Compare(clientv3.Value(LeaderPath), "=", "")).
-		Then(
-			clientv3.OpPut(LeaderPath, b.opt.endPoint),
-			clientv3.OpPut(LeaderId,b.brokerId),
-			clientv3.OpDelete(fmt.Sprintf("%s%s", FollowerPath, b.brokerId)),
+// Leader和Member运行时的逻辑不一致，替换为主节点后需要将当前Broker转换为LeaderBroker并启动
+func (b *Broker) watchLeader() {
+	for {
+		watchChan := b.RegisterCenter.Watch(b.ctx, LeaderPath)
+		<-watchChan
+		kv := clientv3.NewKV(b.RegisterCenter)
+		kv.Txn(b.ctx).
+			If(clientv3.Compare(clientv3.Value(LeaderPath), "=", "")).
+			Then(
+				clientv3.OpPut(LeaderPath, b.opt.endPoint),
+				clientv3.OpPut(LeaderId, b.brokerId),
+				clientv3.OpDelete(fmt.Sprintf("%s%s", FollowerPath, b.brokerId)),
 			).
-		Commit()
-	b.updateIdentity(kv)
+			Commit()
+		b.updateIdentity(kv)
+		if b.opt.identity == Leader {
+			leader := NewLeaderBroker(b)
+			leader.Run()
+		}
+	}
 }
 
 // updateIdentity 更新当前broker的身份
