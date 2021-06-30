@@ -140,10 +140,12 @@ func (b *Broker) watchLeader() {
 			Commit()
 		b.updateIdentity(kv)
 		if b.opt.identity == Leader {
-			leader := NewLeaderBroker(b)
-			leader.Run()
+			goto LeaderRun
 		}
 	}
+LeaderRun:
+	leader := NewLeaderBroker(b)
+	leader.Run()
 }
 
 // updateIdentity 更新当前broker的身份
