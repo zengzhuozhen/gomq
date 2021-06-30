@@ -116,7 +116,7 @@ func (b *Broker) register() {
 	b.RegisterCenter, _ = clientv3.New(config)
 	kv := clientv3.NewKV(b.RegisterCenter)
 	kv.Txn(b.ctx).
-		If(clientv3.Compare(clientv3.Value(LeaderPath), "=", "")).
+		If(clientv3.Compare(clientv3.Version(LeaderPath), "=", 0)).
 		Then(clientv3.OpPut(LeaderPath, b.opt.endPoint)).
 		Else(clientv3.OpPut(fmt.Sprintf("%s%s", FollowerPath, b.brokerId), b.opt.endPoint)).
 		Commit()
@@ -131,7 +131,7 @@ func (b *Broker) watchLeader() {
 		<-watchChan
 		kv := clientv3.NewKV(b.RegisterCenter)
 		kv.Txn(b.ctx).
-			If(clientv3.Compare(clientv3.Value(LeaderPath), "=", "")).
+			If(clientv3.Compare(clientv3.Version(LeaderPath), "=", 0)).
 			Then(
 				clientv3.OpPut(LeaderPath, b.opt.endPoint),
 				clientv3.OpPut(LeaderId, b.brokerId),
