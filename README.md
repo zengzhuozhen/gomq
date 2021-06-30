@@ -1,6 +1,6 @@
 # GoMQ
 
-Golang实现的消息队列
+Golang实现的消息中间件
 
 ## 目录
 
@@ -158,9 +158,9 @@ but was required as: github.com/coreos/bbolt
 ## TODO
 
 - [ ] Broker断线后保存未处理信息(Qos>0)
-- [ ] 主从切换高可用
+- [x] 主从切换
 - [x] 日志压缩算法
 - [ ] 日志分片
 - [ ] 日志复制 
-- [ ] 持久化消息存储规划
+- [x] 持久化消息存储规划
 - [ ] 客户端消费偏移持久化
