@@ -100,12 +100,11 @@ func NewBroker(options ...Option) IBroker {
 	broker.register()
 	log.Debugf("初始化broker成功，ID:" + broker.brokerId)
 
-	if broker.opt.identity == Leader {
-		return NewLeaderBroker(broker)
-	} else {
+	if broker.opt.identity == Member {
 		go broker.watchLeader()
-		return NewMemberBroker(broker)
 	}
+	return NewMemberBroker(broker)
+
 }
 
 func (b *Broker) register() {
