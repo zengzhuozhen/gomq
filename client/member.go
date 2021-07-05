@@ -76,7 +76,7 @@ func (m *Member) ReadPacket() {
 			fmt.Println("接收到Leader返回的SyncAck消息")
 		default:
 			// 同步普通消息
-			messByte := make([]byte, 4096) // todo fix:这里可能由于粘包导致超出slice长度
+			messByte := make([]byte, 1024 * 20) // 分配足够大空间保证包不会被截断
 			n, _ := m.client.conn.Read(messByte)
 			head := fh.Pack()
 			data := append(head.Bytes(), messByte[:n]...)
