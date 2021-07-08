@@ -30,7 +30,6 @@ func NewMember(opts *Option) *Member {
 
 func (m *Member) SendSync() error {
 	err := m.client.connect()
-	fmt.Println(m.client.conn.LocalAddr().String())
 	if err != nil {
 		panic("连接Leader失败")
 	}
