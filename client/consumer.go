@@ -59,6 +59,7 @@ func (c *Consumer) heart(duration time.Duration) {
 }
 
 func (c *Consumer) readPacket(msgUnitChan chan<- *common.MessageUnit) {
+	messByte := make([]byte, 1024 * 20) // 分配足够大空间保证包不会被截断
 	for {
 		// 读取数据包
 		var fh protocolPacket.FixedHeader
@@ -92,7 +93,6 @@ func (c *Consumer) readPacket(msgUnitChan chan<- *common.MessageUnit) {
 			log.Infof("收到服务端心跳回应")
 		default:
 			// 普通消息
-			messByte := make([]byte, 1024 * 20) // 分配足够大空间保证包不会被截断
 			n, _ := c.client.conn.Read(messByte)
 			head := fh.Pack()
 			data := append(head.Bytes(), messByte[:n]...)
