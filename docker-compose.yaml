@@ -11,8 +11,6 @@ services:
       - "/Volumes/gomq/:/var/log/gomq/"
     networks:
       - mqnet
-    depends_on:
-      - etcd
 
   etcd:
     container_name: etcd
