@@ -36,7 +36,7 @@ func (fs *FileStore) Open(topic string) {
 	logName := fmt.Sprintf("%sgomq.%s.log", fs.dirname, topic)
 	file, err := os.OpenFile(logName, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0666)
 	if err != nil {
-		panic(err.Error())
+		log.Fatalf("无目录权限:",logName)
 	}
 	fs.files[topic] = file
 
